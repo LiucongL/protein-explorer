@@ -1,46 +1,69 @@
 # Protein Explorer
 
-A single-file web page for looking at one protein at a time: its UniProt annotations, Pfam domains, MobiDB disorder tracks, experimental (PDB) construct coverage and the AlphaFold model, drawn along the sequence and in 3D.
+A single-file web app for exploring one protein at a time: its UniProt annotations, Pfam matches, MobiDB disorder tracks, experimental (PDB) construct coverage and AlphaFold model, displayed along the sequence and in 3D.
 
-Type a gene name, protein name or UniProt accession, choose an organism, and press Search. Click a domain, a region or residues to highlight them in the sequence, the architecture diagram and the structure. Links to a specific protein work directly, e.g. `?q=KRAS&org=9606` or `?q=P01116`.
+Enter a gene name, protein name or UniProt accession, choose an organism, and press **Search**. Select a domain, region or residues to highlight them in the sequence, architecture diagram and 3D structure. Protein-specific links use query parameters such as `?q=KRAS&org=9606` or `?q=P01116`.
 
-Current version: **v1.3.5** (shown next to the name in the header). Use it here: https://liucongl.github.io/protein-explorer/ — no account needed. Source code: https://github.com/liucongl/protein-explorer. The same file is mirrored on the current institute GitLab for download.
+Current version: **v1.3.6**, also shown beside the app name in the header and in the footer.
+
+- **Open the app:** **https://liucongl.github.io/protein-explorer/** — no account needed.
+- **Source code and releases:** **https://github.com/liucongl/protein-explorer**
+<!-- Institute download mirror: link shared privately on request. -->
 
 ## How it works
 
-The page is plain HTML/JavaScript with no server of its own. Everything it shows is fetched live from public services when you search:
+The app is plain HTML and JavaScript, hosted as a static page. It has no application backend of its own. Protein data are requested from public services when you search.
 
-| Panel | Source |
+| Information | Source |
 |---|---|
-| Names, sequence, regions, motifs, cross-references | [UniProt](https://www.uniprot.org/) REST API |
-| Pfam domains | [InterPro](https://www.ebi.ac.uk/interpro/) API (precomputed matches) |
+| Names, sequence, regions, motifs and cross-references | [UniProt](https://www.uniprot.org/) REST API |
+| Pfam matches | [InterPro](https://www.ebi.ac.uk/interpro/) API: precomputed matches |
 | Disorder tracks | [MobiDB](https://mobidb.org/) API |
 | Predicted structure and confidence (pLDDT) | [AlphaFold DB](https://alphafold.ebi.ac.uk/) |
-| Experimental structures | PDB cross-references listed by UniProt |
-| 3D viewer | [3Dmol.js](https://3dmol.org/) |
+| Experimental structures | PDB records referenced by UniProt |
+| 3D display | [3Dmol.js](https://3dmol.org/) |
 
-Nothing you search is stored anywhere; the only data leaving your browser are the queries to those services.
+The app does not require an account or maintain its own server-side search history. Searches and record requests are sent to the relevant data providers. Those providers and the website host may log requests; the browser may also retain history, cached data and preferences. Searches should not be considered private or anonymous.
 
 ## Reading the domain annotations
 
-Pfam domains are **family matches, not measured boundaries**. Pfam builds a profile hidden Markov model for each family from a curated seed alignment; InterPro runs those models against every UniProt sequence and stores where each model matches. The Explorer retrieves those stored matches — it does not run the analysis itself — and draws the match envelope as the domain. Three consequences:
+**Pfam matches are computational annotations, not experimentally measured functional boundaries.** Pfam builds profile hidden Markov models from curated seed alignments. These models are searched against protein sequences, and the Explorer retrieves the precomputed matches supplied by InterPro. The Explorer does not run HMMER or calculate the match boundaries itself.
 
-- The start and end of a domain are where the sequence stops resembling the family model. They need not coincide with the region shown experimentally to carry the function, which is often shorter (a structured peptide) or differently placed. Each domain row links to its InterPro entry, where the family's literature reference and seed alignment are listed.
-- A match on one species is a homology inference from the family, not an annotation of that protein. UniProt's own region annotations, shown separately, carry their evidence with them.
-- Matches change between releases, because InterPro recomputes them when Pfam models or the search software are updated. Record the InterPro/Pfam release with any coordinates you rely on.
+The diagram uses the start and end coordinates returned by InterPro. These are described here as **match coordinates**: HMMER distinguishes alignment coordinates from envelope coordinates, and those terms should not be used interchangeably without checking the source data.
 
-If InterPro cannot be reached, the page falls back to UniProt's own domain annotations and says so in the headings; the short note at the foot of the domain list changes accordingly.
+- A match identifies a region resembling the family's sequence model. Its boundaries may differ from an experimentally studied peptide or the region required for a particular activity. A match does not establish that every residue within it is functionally necessary.
+- A match on a mouse protein is a computational annotation of that mouse sequence. It does not, by itself, mean the function or its boundaries were tested experimentally in mouse. UniProt region annotations are shown separately with their associated evidence.
+- A region called a “domain” need not be an independently folded unit. This matters particularly for transactivation regions and other regions that can be disordered.
+- Annotations can change as sequences, models and database releases are updated. For coordinates you rely on, record the protein accession and isoform, residue range, Pfam identifier, retrieval date and database release when available.
+
+Each domain row links to its source record, and a short note at the foot of the domain list in the app points to this section. If InterPro is unavailable, the app falls back to UniProt domain annotations and labels that source accordingly.
 
 ## Other things to know
 
-- The AlphaFold model is used only after its residues have been verified against the UniProt sequence; if that fails, the model is still shown but domain colouring and residue highlighting are switched off and a note explains why. Partial models are labelled with the residues they cover.
-- PDB coverage means the stretch of sequence present in a deposited construct, in UniProt numbering — not that every residue in it is resolved. MobiDB's missing-residue tracks report unresolved residues.
-- An isoform accession (e.g. `P01116-2`) shows that isoform's sequence; domains, structures and tracks remain those of the canonical entry.
+- **AlphaFold:** residue mapping is checked against the UniProt sequence before annotations are overlaid. If mapping fails, the model can still be displayed, but domain colouring and residue highlighting are disabled with an explanatory note. Partial models are labelled with their coverage. pLDDT describes prediction confidence; it is not a direct measurement of disorder.
+- **Experimental structures:** distinguish the sequence represented by a deposited construct from residues actually resolved in its structure. Coverage does not mean every residue has coordinates. MobiDB missing-residue tracks provide a separate view of unresolved residues.
+- **Disorder:** different prediction methods can disagree. An unmarked region does not establish that it is ordered; use the track's method and evidence labels when interpreting it.
+- **Isoforms:** an isoform accession, such as `P01116-2`, selects that isoform's sequence, while domains, structures and disorder tracks refer to the canonical entry. Check the sequence and mapping labels before transferring coordinates between them.
+- **Availability:** public services can be unavailable or return incomplete annotations. A failed request is not evidence that a protein lacks a domain, structure or disordered region.
 
 ## Running and hosting
 
-Open the file from any static web host over HTTPS (needed for the clipboard and, in the companion Workbench, tab coordination). Opening it directly from a phone's Files app does not run it. For updates, replace the file; the version pill tells everyone which build they are on.
+Use the app from a static web host over HTTPS for reliable browser features such as clipboard access. A downloaded HTML file may also work in a desktop browser, but it still needs internet access for database requests. Local-file handling varies between browsers and mobile file viewers; the hosted link is the simplest option.
+
+To update a hosted copy, replace `index.html` and redeploy it. Keep the version shown in the app, this README and any release metadata consistent.
+
+## Reporting problems
+
+**Issue tracker:** **https://github.com/liucongl/protein-explorer/issues**
+
+Please include the app version, protein accession and organism, browser, steps to reproduce the problem, and what you expected to happen. Include the displayed error or a screenshot when useful.
 
 ## Citing
 
-Please cite the UniProt, InterPro/Pfam, MobiDB, AlphaFold DB and PDB entries you used, with their release dates, in addition to this tool: *(citation / DOI to be added)*.
+If you use this tool in your research, please cite the version used. Author, version and release details are kept in `CITATION.cff` in the repository; GitHub shows them under **Cite this repository**. 
+
+Also cite the underlying databases according to their guidance, and identify the relevant protein accessions, structure IDs and database versions or access dates so the annotations can be traced.
+
+---
+
+I developed this application with Claude and used GPT to review the code.

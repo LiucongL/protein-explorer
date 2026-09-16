@@ -173,6 +173,7 @@ details.dstruct[open] > summary::before{content:"▾"}
 .seq .aa.act{background:var(--fc);color:#fff}
 .hint{font-size:13px;color:var(--faint)}
 .pfamnote{margin:8px 0 0;font-size:12px;line-height:1.4}
+.foot{margin:32px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;line-height:1.5;color:var(--faint)}
 
 /* search matches */
 .matches{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px 6px;margin:0 0 22px;max-width:960px;box-shadow:var(--shadow)}
@@ -206,7 +207,7 @@ svg text{font-family:Inter,system-ui,sans-serif}
 <body>
 <header class="topbar">
   <div class="topbar-in">
-    <a class="brand" href="?" aria-label="Protein explorer home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg></span><span>protein explorer</span><span class="ver">v1.3.5</span></a>
+    <a class="brand" href="?" aria-label="Protein explorer home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg></span><span>protein explorer</span><span class="ver">v1.3.6</span></a>
     <form id="f" class="search">
       <span class="sicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
       <input id="q" type="text" placeholder="Search gene, protein, or UniProt accession" autocomplete="off" spellcheck="false" aria-label="Gene name, protein name or accession">
@@ -308,6 +309,7 @@ svg text{font-family:Inter,system-ui,sans-serif}
     </div>
   </div>
 
+  <footer class="foot">Protein Explorer <span id="foot-ver"></span> · a viewer for public data from UniProt, InterPro/Pfam, MobiDB, AlphaFold DB and the PDB — please cite those resources for any result you use. <span id="foot-links"></span></footer>
 </div>
 
 <dialog id="sequence-copy-dialog" aria-labelledby="sequence-copy-title" style="max-width:90vw;width:640px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:20px">
@@ -1506,6 +1508,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (/^(input|textarea|select)$/i.test(e.target?.tagName) || e.target?.isContentEditable) return;   // typing in a field: Escape is theirs
     clearSelection();
   });
+  $('foot-ver').textContent = document.querySelector('.brand .ver')?.textContent || '';
+  // Footer links. REPO is the GitHub repository of this file; set it once and the three links follow.
+  const REPO = 'https://github.com/liucongl/protein-explorer';
+  const link = (href, label) => `<a class="ext" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
+  $('foot-links').innerHTML = /USERNAME/.test(REPO)
+    ? link('README.md', 'Help / README')
+    : [link(REPO + '/blob/main/README.md', 'Help / README'), link(REPO, 'Source & citation'), link(REPO + '/issues', 'Report a problem')].join(' · ');
   const params = new URLSearchParams(location.search);
   const wanted = params.get('org');
   if (wanted !== null){
