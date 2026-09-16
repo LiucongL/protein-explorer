@@ -4,7 +4,7 @@ A single-file web page for looking at one protein at a time: its UniProt annotat
 
 Type a gene name, protein name or UniProt accession, choose an organism, and press Search. Click a domain, a region or residues to highlight them in the sequence, the architecture diagram and the structure. Links to a specific protein work directly, e.g. `?q=KRAS&org=9606` or `?q=P01116`.
 
-Current version: **v1.3.5** (shown next to the name in the header). Canonical source: *(GitHub link)*. Institute copy: *(GitLab Pages link)*.
+Current version: **v1.3.5** (shown next to the name in the header). Use it here: https://liucongl.github.io/protein-explorer/ — no account needed. Source code: https://github.com/liucongl/protein-explorer. The same file is mirrored on the current institute GitLab for download.
 
 ## How it works
 
