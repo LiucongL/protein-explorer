@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protein explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function(){ try { var t = localStorage.getItem('pe-theme'); if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark'; if (t === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {} })();
+</script>
+<!-- 3Dmol is loaded from the project's own host at whatever build is current. To pin it (recommended once a version has
+     been checked in a browser): replace the src with a versioned, immutable URL — e.g. a cdnjs URL for a specific 3Dmol
+     release — and add integrity="sha384-…" crossorigin="anonymous", computing the hash from the exact file:
+       openssl dgst -sha384 -binary 3Dmol-min.js | openssl base64 -A
+     A hash mismatch then blocks the script instead of running a changed build; the page already degrades cleanly
+     ("3D viewer unavailable") when the script does not load. -->
+<script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<style>
+:root{
+  --ink:#171A26; --muted:#5F6577; --faint:#9AA0B0; --line:#E4E6EE; --card:#FFFFFF; --panel:#F6F7FB;
+  --brand:#4F46E5; --brand-dark:#4338CA; --brand-soft:#EEEDFC; --brand-ink:#3730A3;
+  --sel:#4F46E5; --sel-soft:#EEEDFC; --grey:#D9DEE7;
+  --green-soft:#DCFCE7; --green-ink:#166534;
+  --hover:#F4F5FA; --status-bg:rgba(255,255,255,.9); --err:#9B2C2C;
+  --badge-bg:#E6F4EA; --badge-ink:#1E6B3A; --badge-un:#F1F2F5;
+  --hatch-a:#7A8A9A; --hatch-b:#EEF2F5;
+  --shadow:0 1px 2px rgba(23,26,38,.04), 0 6px 20px rgba(23,26,38,.05);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --ink:#E7E9F0; --muted:#A0A6B6; --faint:#6E7486; --line:#282C38; --card:#171A23; --panel:#0F1117;
+  --brand:#6366F1; --brand-dark:#4F46E5; --brand-soft:rgba(99,102,241,.18); --brand-ink:#A5B4FC;
+  --sel:#6366F1; --sel-soft:rgba(99,102,241,.22); --grey:#3A4050;
+  --green-soft:#14532D; --green-ink:#86EFAC;
+  --hover:#1F2330; --status-bg:rgba(23,26,35,.9); --err:#F87171;
+  --badge-bg:#153A26; --badge-ink:#86EFAC; --badge-un:#232734;
+  --hatch-a:#8A93A6; --hatch-b:#2A2F3C;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.25);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);font-size:15px;line-height:1.45;background:var(--panel)}
+a{color:var(--brand)}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1560px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}
+.brand .ver{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:1px 7px;margin-left:4px;font-variant-numeric:tabular-nums}
+.brand .mark{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff}
+.search{display:flex;align-items:center;flex:1;max-width:820px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(23,26,38,.04);overflow:hidden}
+.search:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.search .sicon{display:flex;color:var(--faint);padding:0 4px 0 14px}
+.search input[type=text]{flex:1;min-width:0;font:inherit;font-size:15px;padding:11px 10px;border:0;background:transparent;color:var(--ink)}
+.search input:focus{outline:none}
+.search select{font:inherit;font-size:15px;padding:11px 34px 11px 14px;border:0;border-left:1px solid var(--line);border-radius:0;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235F6577' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--ink);appearance:none;-webkit-appearance:none;cursor:pointer}
+.search select:focus{outline:none;background-color:var(--brand-soft)}
+.search button{border:0;border-radius:0;padding:11px 20px;font-weight:600;font-size:15px;align-self:stretch}
+.iconbtn{margin-left:auto;display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer}
+.iconbtn:hover{background:var(--hover);border-color:var(--line);color:var(--ink)}
+.iconbtn .sun{display:none}
+:root[data-theme="dark"] .iconbtn .sun{display:block}
+:root[data-theme="dark"] .iconbtn .moon{display:none}
+.open-uniprot{white-space:nowrap;font-size:14px;font-weight:600;color:#fff;background:var(--brand);padding:9px 14px;border-radius:10px;text-decoration:none}
+.open-uniprot:hover{background:var(--brand-dark)}
+
+/* controls */
+input[type=text]{font:inherit;font-size:15px;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+select{font:inherit;font-size:14px;padding:8px 32px 8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235F6577' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;color:var(--ink);appearance:none;-webkit-appearance:none}
+button{font:inherit;font-size:14px;padding:9px 14px;border:1px solid var(--brand);border-radius:10px;background:var(--brand);color:#fff;cursor:pointer}
+button:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+button.quiet{background:var(--card);color:var(--brand-ink);border-color:var(--line);font-weight:500}
+button.quiet:hover{background:var(--brand-soft);border-color:var(--brand-soft)}
+button.small{padding:5px 11px;font-size:13px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+
+/* page */
+.wrap{max-width:1560px;margin:0 auto;padding:28px 24px 40px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink)}
+.titlerow{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:24px}
+.title{display:flex;flex-direction:column;gap:6px;min-width:0}
+h1{font-size:44px;font-weight:600;letter-spacing:-.025em;margin:2px 0 0;line-height:1.05}
+.meta{color:var(--muted);font-size:18px}
+.meta .acc{color:var(--brand);font-weight:600}
+.links{margin-top:6px;font-size:14px;display:flex;flex-wrap:wrap;gap:4px 20px}
+.links a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}
+.links a:hover{color:var(--ink);border-bottom-color:var(--ink)}
+.tiles{display:flex;gap:14px;flex-wrap:wrap}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px 14px;min-width:150px;box-shadow:0 1px 2px rgba(23,26,38,.04)}
+.tile b{display:block;font-size:26px;font-weight:600;line-height:1.15;letter-spacing:-.01em}
+.tile span{color:var(--muted);font-size:14px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr);gap:22px;align-items:start}
+.col{display:flex;flex-direction:column;gap:22px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:22px 24px;min-width:0}
+.card h2{font-size:20px;font-weight:500;letter-spacing:-.01em;margin:0 0 4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.card h2 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;font-weight:400;color:var(--muted)}
+.card .sub{color:var(--muted);font-size:14px;margin:0 0 14px}
+.card.viewer{padding:0;overflow:hidden}
+.cardhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px 6px}
+.pill{display:inline-block;font-size:13px;font-weight:600;padding:4px 12px;border-radius:999px}
+.pill.green{background:var(--green-soft);color:var(--green-ink)}
+.viewerbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:10px 24px 14px;border-bottom:1px solid var(--line);font-size:15px;color:var(--muted)}
+.viewerbar label{display:flex;align-items:center;gap:10px}
+.viewerbar .spacer{flex:1}
+#viewer{position:relative;height:470px}
+#status{position:absolute;left:14px;top:12px;z-index:2;font-size:13px;color:var(--muted);background:var(--status-bg);padding:4px 9px;border-radius:8px;max-width:80%}
+.legend{display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding:12px 24px 14px;font-size:14px;color:var(--muted)}
+.legend .k{color:var(--faint);margin-right:2px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:7px;vertical-align:-2px}
+.legend .spacer{flex:1}
+.legend a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}
+.legend a:hover{color:var(--ink);border-bottom-color:var(--ink)}
+
+.feat{display:flex;align-items:center;gap:12px;padding:9px 6px;margin:0 -6px;border-top:1px solid var(--line);cursor:pointer;border-radius:8px}
+.feat:first-of-type{border-top:0}
+.feat:hover{background:var(--hover)}
+.feat:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.hit:focus-visible,.hitr:focus-visible{outline:2px solid var(--brand)}
+.feat.active{background:var(--sel-soft);box-shadow:inset 3px 0 0 var(--sel)}
+.feat i{width:14px;height:14px;border-radius:4px;flex:none}
+.feat i.hatch{background:repeating-linear-gradient(45deg,var(--hatch-a) 0 2px,var(--hatch-b) 2px 5px)}
+.feat i.dots{background:radial-gradient(circle,#C9A227 1.3px,transparent 1.6px) 0 0/4px 4px,var(--hatch-b)}
+.feat .n{flex:1;font-weight:500;min-width:0}
+.feat .r{color:var(--muted);white-space:nowrap}
+.feat small{display:block;color:var(--faint);font-weight:400;font-size:13px}
+.feat a.ext{color:inherit;text-decoration:none;border-bottom:1px dotted var(--faint)}
+.feat a.ext:hover{color:var(--brand)}
+.feat .pid{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-weight:600}
+.feat .r small{display:block;text-align:right}
+.card h2 .tools select{font-size:13px;padding:4px 28px 4px 10px;background-position:right 8px center}
+.covkey{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.covkey i{display:inline-block;width:14px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+#pdb-more{margin-top:10px}
+.covkey + .feat{border-top:0}
+.empty{color:var(--muted);padding:6px 0}
+.dgroup{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:12px 0 2px}
+.dgroup:first-child{margin-top:2px}
+.dgroup small{display:block;font-weight:400;letter-spacing:0;text-transform:none;font-size:12.5px;color:var(--muted);margin-top:1px}
+.trk{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:2px 10px;align-items:start;padding:7px 6px;margin:0 -6px;border-top:1px solid var(--line);border-radius:8px}
+.trk:hover{background:var(--hover)}
+.trk input{margin:4px 0 0;accent-color:var(--brand)}
+.trk i{width:14px;height:14px;border-radius:4px;flex:none;margin-top:3px}
+.trk .n{font-weight:500;min-width:0}
+.trk .n small{display:block;color:var(--muted);font-weight:400;font-size:13px}
+.trk .rg{display:flex;flex-wrap:wrap;gap:3px 6px;margin-top:4px;font-size:12.5px;color:var(--muted)}
+.trk .rg button{cursor:pointer;border:0;border-bottom:1px dotted var(--faint);padding:0;background:none;color:inherit;font:inherit}
+button:disabled{opacity:.5;cursor:default}
+.trk .rg button:hover{color:var(--ink);border-bottom-style:solid}
+.trk .rg details button{margin:4px 6px 0 0}
+.trk.off{opacity:.65}
+details.dstruct{margin-top:10px}
+details.dstruct > summary::-webkit-details-marker{display:none}
+details.dstruct > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+details.dstruct > summary::before{content:"▸";color:var(--faint);font-size:12px}
+details.dstruct[open] > summary::before{content:"▾"}
+.dstruct-body{max-height:320px;overflow:auto;margin-top:4px}
+.msg{color:var(--muted)}.msg.err{color:var(--err)}
+.note{margin-top:12px;max-width:760px;font-size:14px;line-height:1.5;color:var(--ink);background:var(--brand-soft);border:1px solid transparent;border-radius:10px;padding:10px 14px}
+.note b{font-weight:600}
+.note.warn{background:#FFF4DE;color:#7A4B00}
+:root[data-theme="dark"] .note.warn{background:#3A2A0C;color:#FBD38D}
+
+/* sequence */
+.seq{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:2.05;white-space:pre-wrap;word-break:break-all;margin:0;user-select:none}
+.seq .n{color:var(--faint);user-select:none}
+.seq .aa{border-radius:2px;cursor:pointer;padding:1px 0}
+.seq .aa:hover{outline:1px solid var(--ink)}
+.seq .aa.f{box-shadow:inset 0 -3px 0 var(--fc)}
+.seq .aa.sel{background:var(--sel);color:#fff}
+.seq .aa.act{background:var(--fc);color:#fff}
+.hint{font-size:13px;color:var(--faint)}
+.pfamnote{margin:8px 0 0;font-size:12px;line-height:1.4}
+
+/* search matches */
+.matches{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 10px 6px;margin:0 0 22px;max-width:960px;box-shadow:var(--shadow)}
+.matches-head{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;color:var(--muted);padding:4px 6px 8px}
+.matches-head b{color:var(--ink);font-weight:600}
+.matches-list{max-height:290px;overflow:auto}
+.m{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:2px 14px;align-items:center;padding:8px 8px;border-top:1px solid var(--line);cursor:pointer;border-radius:8px;text-align:left;width:100%;background:none;border-left:0;border-right:0;border-bottom:0;color:inherit;font:inherit}
+.m:first-child{border-top:0}
+.m:hover{background:var(--hover)}
+.m.loaded{background:var(--sel-soft);box-shadow:inset 3px 0 0 var(--sel)}
+.m .g{font-weight:600;font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.m .d{min-width:0;color:var(--ink);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m .d small{display:block;color:var(--muted);font-weight:400;font-size:13px;white-space:normal}
+.m .a{text-align:right;font-size:13px;color:var(--muted);white-space:nowrap;line-height:1.35}
+.m .a small{display:block;color:var(--faint)}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--badge-bg);color:var(--badge-ink);margin-left:8px;vertical-align:1px;font-weight:500}
+.badge.un{background:var(--badge-un);color:var(--muted)}
+.badge.why{background:var(--brand-soft);color:var(--brand-ink)}
+@media (max-width:640px){.m{grid-template-columns:1fr}.m .a{text-align:left}}
+svg text{font-family:Inter,system-ui,sans-serif}
+@media (min-width:1101px){
+  .col.side{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 12px 2px;margin:-4px -6px 0 -2px;scrollbar-width:thin;scrollbar-color:var(--grey) transparent}
+  .col.side::-webkit-scrollbar{width:8px}
+  .col.side::-webkit-scrollbar-thumb{background:var(--grey);border-radius:8px}
+}
+@media (max-width:1100px){.grid{grid-template-columns:1fr}}
+@media (max-width:900px){.topbar-in{flex-wrap:wrap;gap:12px}.search{order:3;flex-basis:100%;max-width:none}.iconbtn{margin-left:auto}}
+@media (max-width:640px){h1{font-size:32px}.wrap{padding:18px 16px 32px}#viewer{height:340px}.search select{padding-left:10px}.tile{min-width:120px;padding:12px 16px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="?" aria-label="Protein explorer home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg></span><span>protein explorer</span><span class="ver">v1.3.5</span></a>
+    <form id="f" class="search">
+      <span class="sicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+      <input id="q" type="text" placeholder="Search gene, protein, or UniProt accession" autocomplete="off" spellcheck="false" aria-label="Gene name, protein name or accession">
+      <select id="org" aria-label="Organism">
+        <option value="9606">Human</option><option value="10090">Mouse</option><option value="10116">Rat</option>
+        <option value="7955">Zebrafish</option><option value="7227">Fly</option><option value="6239">Worm</option>
+        <option value="559292">Yeast</option><option value="83333">E. coli K-12</option><option value="3702">Arabidopsis</option>
+        <option value="">Any organism</option>
+      </select>
+      <button type="submit">Search</button>
+    </form>
+    <button class="iconbtn" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <svg class="moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <a class="open-uniprot" id="open-uniprot" href="https://www.uniprot.org/" target="_blank" rel="noopener">Open UniProt <span aria-hidden="true">↗</span></a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="matches" id="matches" hidden>
+    <div class="matches-head"><span id="matches-title"></span><button class="quiet small" id="matches-toggle" type="button">Hide</button></div>
+    <div class="matches-list" id="matches-list" role="listbox" aria-label="Matching UniProt entries"></div>
+  </div>
+
+  <div class="titlerow">
+    <div class="title">
+      <div class="eyebrow">Protein overview</div>
+      <h1 id="gene">Protein</h1>
+      <div class="meta" id="meta">Type a gene name, protein name or accession above.</div>
+      <div class="links" id="links"></div>
+      <div class="note" id="note" hidden></div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><b id="t-len">–</b><span>sequence length</span></div>
+      <div class="tile"><b id="t-plddt">–</b><span>mean pLDDT</span></div>
+      <div class="tile"><b id="t-pfam">–</b><span id="t-pfam-l">Pfam domains</span></div>
+      <div class="tile"><b id="t-pdb">–</b><span id="t-pdb-l">PDB structures</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="card viewer">
+        <div class="cardhead"><span class="eyebrow">Predicted structure</span><span class="pill green" id="afpill">AlphaFold prediction</span></div>
+        <div class="viewerbar">
+          <label>Color by
+            <select id="mode">
+              <option value="plddt">Model confidence</option>
+              <option value="domain">Domains</option>
+              <option value="spectrum">N → C rainbow</option>
+            </select>
+          </label>
+          <span class="spacer"></span>
+          <span id="selinfo" class="hint">click a domain or residues to highlight</span>
+          <button class="quiet small" id="reset" type="button" disabled>Reset</button>
+        </div>
+        <div id="viewer"><div id="status">No structure loaded</div></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="card">
+        <h2>Domain architecture <button class="quiet small" id="dlsvg" type="button" disabled>Download SVG</button></h2>
+        <p class="sub" id="arch-sub">Domains, UniProt regions, and AlphaFold confidence along the sequence</p>
+        <div id="arch"><div class="empty">Look up a protein to draw the architecture.</div></div>
+      </div>
+      <div class="card">
+        <h2>Sequence <span class="tools"><span class="hint">click a residue, shift-click for a range</span><button class="quiet small" id="copy-sequence" type="button" disabled title="Copy the full amino-acid sequence, without a FASTA header or residue numbers">Copy sequence</button><button class="quiet small" id="copy-selected" type="button" disabled title="Select residues or a feature first">Copy selected</button><button class="quiet small" id="fasta" type="button" disabled>Copy FASTA</button></span></h2>
+        <p class="sub" id="seq-sub">Domain annotations</p>
+        <div id="seq"><div class="empty">Nothing loaded yet.</div></div>
+      </div>
+    </div>
+    <div class="col side" id="side">
+      <div class="card">
+        <h2>Structure confidence</h2>
+        <p class="sub" id="hist-sub">AlphaFold pLDDT distribution</p>
+        <div id="hist"><div class="empty">Waiting for the AlphaFold model.</div></div>
+      </div>
+      <div class="card" id="pdb-card">
+        <h2>Experimental structures <span class="tools"><label>Sort <select id="pdb-sort" aria-label="Sort PDB entries" disabled><option value="coverage">longest coverage</option><option value="resolution">best resolution</option><option value="id">PDB ID</option></select></label></span></h2>
+        <p class="sub" id="pdb-sub">PDB entries cross-referenced by UniProt · click to highlight the covered residues</p>
+        <div id="pdb"><div class="empty">Nothing loaded yet.</div></div>
+      </div>
+      <div class="card">
+        <h2 id="pfam-h">Pfam domains</h2>
+        <p class="sub" id="pfam-sub">InterPro · click to highlight</p>
+        <div id="pfam"><div class="empty">Nothing loaded yet.</div></div>
+      </div>
+      <div class="card">
+        <h2>UniProt regions</h2>
+        <p class="sub" id="reg-sub">Motifs, transmembrane segments, compositional bias and MobiDB-lite disorder calls, with the evidence UniProt gives for each · click to highlight</p>
+        <div id="regions"><div class="empty">Nothing loaded yet.</div></div>
+      </div>
+      <div class="card">
+        <h2>Disorder annotations <span class="tools"><span class="hint">tick a track to draw it in the architecture</span></span></h2>
+        <p class="sub" id="dis-sub">MobiDB · curated evidence, structure-derived annotations and predictors are kept separate</p>
+        <div id="dis"><div class="empty">Nothing loaded yet.</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<dialog id="sequence-copy-dialog" aria-labelledby="sequence-copy-title" style="max-width:90vw;width:640px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:20px">
+  <form method="dialog">
+    <h2 id="sequence-copy-title">Copy sequence</h2>
+    <p id="sequence-copy-help">Automatic copying was unavailable. Copy the selected text below using Ctrl+C or Command+C.</p>
+    <textarea id="sequence-copy-text" aria-label="Sequence to copy" readonly rows="8" spellcheck="false" style="width:100%;box-sizing:border-box;font-family:monospace;overflow-wrap:anywhere"></textarea>
+    <p><button type="submit">Close</button></p>
+  </form>
+</dialog>
+
+<script>
+// ---------- configuration ----------
+const UNIPROT  = 'https://rest.uniprot.org/uniprotkb';
+const AFDB     = 'https://alphafold.ebi.ac.uk/api/prediction';
+const AF_MAX_TRIES = 8;   // model files fetched per protein while looking for one that maps to the sequence
+const INTERPRO = 'https://www.ebi.ac.uk/interpro/api/entry/pfam/protein/uniprot';
+const ACC_RE = /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})(-\d+)?$/i;
+const PLDDT = [[90,'#0053D6','very high (≥90)'],[70,'#65CBF3','high (70–90)'],[50,'#FFDB13','low (50–70)'],[0,'#FF7D45','very low (<50)']];
+const DOMAIN_COLORS = ['#2563EB','#DC2626','#059669','#D97706','#9333EA','#DB2777','#0891B2','#65A30D','#EA580C','#0D9488'];
+// UniProt regions keep neutral swatches in the list (their identity is the type), but are highlighted in one vivid colour in 3D/sequence
+const REGION_HL = '#E11D48';
+// Experimental (PDB) coverage: one hue, opacity by how many entries cover a residue.
+const PDB_COLOR = '#0F766E';
+const PDB_DEPTH = [[20,1,'≥ 20 entries'],[5,0.78,'5–19'],[2,0.58,'2–4'],[1,0.38,'1 entry']];
+const depthOpacity = n => { for (const [min,o] of PDB_DEPTH) if (n >= min) return o; return 0; };
+const PDB_ROWS = 60;
+const REGION_TYPES = new Set(['Region','Zinc finger','DNA binding','DNA-binding region','Transmembrane','Intramembrane','Signal','Coiled coil','Motif','Repeat','Transit peptide','Propeptide','Topological domain','Compositional bias']);
+// Human-readable summary of a UniProt feature's evidence, so a prediction is never shown as if it were a curated fact.
+const ECO = {'ECO:0000269':'experimental', 'ECO:0000303':'literature (non-traceable)', 'ECO:0000305':'curator inference', 'ECO:0000250':'by similarity',
+             'ECO:0000255':'sequence analysis', 'ECO:0000256':'automatic annotation', 'ECO:0000259':'automatic (domain)', 'ECO:0000312':'imported', 'ECO:0000313':'imported', 'ECO:0007744':'combined evidence', 'ECO:0007829':'combined evidence'};
+function evidenceLabel(f){
+  const ev = f.evidences || [];
+  if (!ev.length) return {text:'no evidence given', predicted:false};
+  const parts = [], seen = new Set();
+  let predicted = false, experimental = false;
+  for (const e of ev){
+    const code = ECO[e.evidenceCode] || e.evidenceCode || '';
+    const src = e.source === 'SAM' || e.source === 'ARBA' ? (e.id || e.source) : (e.source && e.id ? `${e.source} ${e.id}` : (e.source || ''));
+    if (/automatic|sequence analysis|by similarity|imported/.test(code)) predicted = true;
+    if (code === 'experimental') experimental = true;
+    const t = src ? `${code} · ${src}` : code;
+    if (!seen.has(t)){ seen.add(t); parts.push(t); }
+  }
+  return {text: parts.slice(0,3).join('; ') + (parts.length>3 ? `; +${parts.length-3} more` : ''), predicted: predicted && !experimental, experimental};
+}
+const ENSEMBL_HOSTS = {Ensembl:'www', EnsemblPlants:'plants', EnsemblMetazoa:'metazoa', EnsemblFungi:'fungi', EnsemblBacteria:'bacteria', EnsemblProtists:'protists'};
+const SEL = '#4F46E5';
+const MOBIDB = 'https://mobidb.org/api/download';
+// How MobiDB's tracks are presented. Groups keep evidence classes apart; "summary" tracks are derived from the others and are not independent.
+const TRACK_DEFS = [
+  // curated
+  {re:/^curated-disorder-(merge|priority)$/, group:'curated', summary:true, on:false, color:'#A78BFA', short:m => `curated ${m[1]}`, label:m => `Curated disorder · ${m[1]}`, desc:m => m[1]==='merge' ? 'summary of the curated sources above (their union); not independent evidence' : 'summary of the curated sources above (the highest-ranked one); not independent evidence'},
+  {re:/^curated-disorder-(.+)$/,        group:'curated',    on:true,  color:'#7C3AED', short:m => `curated · ${m[1]}`,  label:m => `Curated disorder · ${m[1]}`, desc:() => 'manually curated from experiments; the MobiDB entry lists the references and experimental context'},
+  // derived from structures / homology
+  {re:/^homology-disorder-(merge|priority)$/, group:'derived', summary:true, on:false, color:'#C084FC', short:m => `homology ${m[1]}`, label:m => `Disorder by homology · ${m[1]}`, desc:() => 'summary of the homology-transferred tracks; not independent'},
+  {re:/^homology-disorder-(.+)$/,       group:'derived',    on:true,  color:'#9333EA', short:m => `homology · ${m[1]}`, label:m => `Disorder transferred by homology · ${m[1]}`, desc:() => 'inferred from a curated homologue'},
+  {re:/^derived-missing_residues-th_(\d+)$/, group:'derived', on:m => m[1]==='90', color:'#0E7490', short:m => `PDB missing ≥${m[1]} %`, label:m => `Missing residues in PDB structures (in ≥ ${m[1]} % of structures)`, desc:() => 'aggregate over all experimental structures of this protein: residues not resolved in the electron density'},
+  {re:/^derived-missing_residues-(merge|priority)$/, group:'derived', summary:true, on:false, color:'#67E8F9', short:m => `PDB missing ${m[1]}`, label:m => `Missing residues in PDB structures · ${m[1]}`, desc:m => m[1]==='merge' ? 'summary: union over the individual structures; not independent' : 'summary: the highest-ranked structure record; not independent'},
+  {re:/^derived-missing_residues-(?:mobi-)?(\w{4}_\w+)$/, group:'structures', on:false, color:'#155E75', short:m => m[1], label:m => `Missing residues in ${m[1].replace('_', ' chain ')}`, desc:() => 'one experimental structure'},
+  // predictions
+  {re:/^prediction-disorder-priority$/, group:'prediction', summary:true, on:false, color:'#64748B', short:() => 'prediction priority', label:() => 'Prediction priority', desc:() => 'summary of the prediction tracks: the single highest-ranked predictor available for this protein; it repeats one of them and is not independent'},
+  {re:/^prediction-disorder-th_50$/,    group:'prediction', summary:true, on:false, color:'#94A3B8', short:() => 'consensus 50 %',    label:() => 'Simple consensus (≥ 50 % of predictors)', desc:() => 'summary of the prediction tracks: majority vote; not independent'},
+  {re:/^prediction-disorder-alphafold$/, group:'prediction', on:true, color:'#2563EB', short:() => 'AlphaFold-derived', label:() => 'AlphaFold-derived (MobiDB)', desc:() => 'AlphaFold-derived disorder annotation supplied by MobiDB; distinct from the local low-pLDDT proxy below'},
+  {re:/^prediction-disorder-iupl$/,     group:'prediction', on:true,  color:'#D97706', short:() => 'IUPred long',       label:() => 'IUPred long', desc:() => 'energy-estimation predictor, long-disorder mode'},
+  {re:/^prediction-disorder-iups$/,     group:'prediction', on:true,  color:'#F59E0B', short:() => 'IUPred short',      label:() => 'IUPred short', desc:() => 'energy-estimation predictor, short-disorder mode'},
+  {re:/^prediction-disorder-mobidb_lite$/, group:'prediction', on:true, color:'#7A8A9A', short:() => 'MobiDB-lite',     label:() => 'MobiDB-lite', desc:() => 'conservative consensus focused on long IDRs (predictor agreement, smoothing, short regions removed); this is the call UniProt imports'},
+  {re:/^prediction-disorder-espD$/,     group:'prediction', on:false, color:'#B45309', short:() => 'ESpritz-D',        label:() => 'ESpritz (DisProt-trained)', desc:() => 'neural-network predictor trained on DisProt'},
+  {re:/^prediction-disorder-espN$/,     group:'prediction', on:false, color:'#A16207', short:() => 'ESpritz-N',        label:() => 'ESpritz (NMR-trained)', desc:() => 'neural-network predictor trained on NMR mobility'},
+  {re:/^prediction-disorder-espX$/,     group:'prediction', on:false, color:'#854D0E', short:() => 'ESpritz-X',        label:() => 'ESpritz (X-ray-trained)', desc:() => 'neural-network predictor trained on missing residues in X-ray structures'},
+  {re:/^prediction-disorder-glo$/,      group:'prediction', on:false, color:'#4D7C0F', short:() => 'GlobPlot',         label:() => 'GlobPlot', desc:() => 'propensity-based predictor'},
+  {re:/^prediction-disorder-dis465$/,   group:'prediction', on:false, color:'#3F6212', short:() => 'DisEMBL-465',      label:() => 'DisEMBL-465', desc:() => 'neural-network predictor (remark-465 missing residues)'},
+  {re:/^prediction-disorder-disHL$/,    group:'prediction', on:false, color:'#365314', short:() => 'DisEMBL-HL',       label:() => 'DisEMBL-HL', desc:() => 'neural-network predictor (hot loops)'},
+  {re:/^prediction-disorder-(.+)$/,     group:'prediction', on:false, color:'#6B7280', short:m => m[1].slice(0,14),    label:m => `Predictor · ${m[1]}`, desc:() => 'disorder predictor'},
+];
+const MAX_STRUCTURE_ROWS = 200;
+const TRACK_GROUPS = {
+  curated:    ['Curated (experimental)', 'manually curated annotations with experimental support'],
+  derived:    ['Structure and homology inferences', 'missing residues and transfer from homologues are indirect evidence; neither alone demonstrates disorder in this protein'],
+  structures: ['Individual structures', 'one record per PDB chain: residues missing from that structure; collapsed because there can be hundreds'],
+  prediction: ['Predictions', 'computational methods — they share training data and ideas, so agreement between them is not independent confirmation'],
+  proxy:      ['Computed on this page', 'a proxy derived from the model already loaded, not a disorder predictor'],
+};
+// neutral colours used inside the SVGs and the 3D viewer; data colours (pLDDT, domains) are the same in both themes
+const THEMES = {
+  light:{bg:'#FFFFFF', axis:'#E9EBF1', tick:'#B9BFCB', tickText:'#9AA3B2', backbone:'#D5D9E2', region:'#DCE1EA', regionText:'#3B4252', outline:'#1E2433', hatchBg:'#EEF2F5', hatchLine:'#7A8A9A', labelBg:'#FFFFFF', grey:'#DFE3EA'},
+  dark: {bg:'#171A23', axis:'#2C3140', tick:'#4A5062', tickText:'#8A91A3', backbone:'#3A4050', region:'#3B4254', regionText:'#D5D9E6', outline:'#F2F4F8', hatchBg:'#2A2F3C', hatchLine:'#8A93A6', labelBg:'#171A23', grey:'#3A4050'}
+};
+const isDark = () => document.documentElement.dataset.theme === 'dark';
+const T = () => THEMES[isDark() ? 'dark' : 'light'];
+
+let viewer = null, model = null;
+const state = {acc:null, entry:null, pfam:[], regions:[], pdb:[], pdbCov:null, pdbShowAll:false, plddt:null, stats:null, active:null, range:null, anchor:null, hoverLabel:null};
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const prop = (x,key) => (x.properties||[]).find(p => p.key===key)?.value || '';
+const plddtColor = b => { if (!Number.isFinite(b)) return '#9AA3B2'; for (const [min,col] of PLDDT) if (b >= min) return col; return PLDDT[3][1]; };
+const setStatus = t => { $('status').textContent = t; };
+const niceTick = len => { for (const t of [10,20,50,100,200,500,1000,2000,5000]) if (len/t <= 8) return t; return 10000; };
+const residues = frags => frags.flatMap(f => { const r=[]; for (let i=f.start;i<=f.end;i++) r.push(i); return r; });
+const allFeatures = () => [...state.pfam, ...state.regions];
+
+const TIMEOUT_MS = 25000;
+let activeRequests = null;
+function startRequests(){
+  activeRequests?.abort(); activeRequests = new AbortController();
+  return activeRequests.signal;
+}
+async function requestData(url, kind, parent){
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort();
+  if (parent?.aborted) controller.abort();
+  else parent?.addEventListener('abort', cancel, {once:true});
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, TIMEOUT_MS);
+  try {
+    const r = await fetch(url, {headers:kind==='json' ? {Accept:'application/json'} : {}, signal:controller.signal});
+    if (!r.ok){ const e = new Error(`${r.status} from ${new URL(url).host}`); e.status = r.status; throw e; }
+    if (r.status === 204) return kind==='json' ? null : '';
+    return await (kind==='json' ? r.json() : r.text());
+  } catch (err){
+    if (parent?.aborted) throw new DOMException('Request superseded', 'AbortError');
+    if (err.status) throw err;
+    const host = new URL(url).host;
+    throw new Error(timedOut ? `no complete response from ${host} within ${TIMEOUT_MS/1000}s` : `could not read data from ${host}`);
+  } finally {
+    clearTimeout(timer); parent?.removeEventListener('abort', cancel);
+  }
+}
+const getJSON = (url, signal) => requestData(url, 'json', signal);
+const getText = (url, signal) => requestData(url, 'text', signal);
+
+// ---------- UniProt: search & candidate ranking ----------
+const SEARCH_FIELDS = 'accession,id,protein_name,gene_names,organism_name,organism_id,reviewed,length,annotation_score';
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function candidateFrom(e){
+  const pd = e.proteinDescription || {}, g = e.genes?.[0] || {};
+  return {
+    acc: e.primaryAccession, id: e.uniProtkbId,
+    name: pd.recommendedName?.fullName?.value || pd.submissionNames?.[0]?.fullName?.value || e.uniProtkbId,
+    altNames: [...(pd.alternativeNames||[]).flatMap(n => [n.fullName?.value, ...(n.shortNames||[]).map(s => s.value)]),
+               ...(pd.recommendedName?.shortNames||[]).map(s => s.value)].filter(Boolean),
+    gene: g.geneName?.value || '',
+    synonyms: [...(g.synonyms||[]), ...(g.orderedLocusNames||[]), ...(g.orfNames||[])].map(s => s.value),
+    organism: e.organism?.scientificName || '', common: e.organism?.commonName || '', taxid: e.organism?.taxonId,
+    reviewed: /reviewed \(Swiss-Prot\)/.test(e.entryType || ''), length: e.sequence?.length || 0, score: e.annotationScore || 0
+  };
+}
+
+// Score each hit by how the query actually matched it. UniProt's own order is not reliable here:
+// e.g. "GFP" returns rice NAL1 first because GFP is one of its gene synonyms.
+function rankCandidates(list, q){
+  const Q = q.toLowerCase(), word = new RegExp('(^|[^a-z0-9])' + escRe(Q) + '($|[^a-z0-9])', 'i');
+  const eq = (a) => a.toLowerCase() === Q;
+  for (const c of list){
+    let s = 0;
+    if (eq(c.gene)){ s = 100; c.why = 'gene name'; }
+    else if (eq(c.name)){ s = 90; c.why = 'protein name'; }
+    else if (c.id.toLowerCase().startsWith(Q + '_')){ s = 80; c.why = 'entry name'; }
+    else if (c.altNames.some(eq)){ s = 55; c.why = 'alternative name'; }
+    else if (c.synonyms.some(eq)){ s = 50; c.why = 'gene synonym'; }
+    else if (word.test(c.name)){ s = 30; c.why = 'in protein name'; }
+    else if (c.altNames.some(x => word.test(x))){ s = 20; c.why = 'in alternative name'; }
+    else { c.why = ''; }
+    c.strong = s >= 80;
+    if (c.reviewed) s += 40;
+    s += c.score * 2;                       // UniProt annotation score, 1–5
+    if (c.taxid === 9606) s += 3;           // gentle tie-break towards human when "Any organism"
+    c.rank = s;
+  }
+  return list.sort((a,b) => b.rank - a.rank || a.length - b.length);
+}
+
+async function searchCandidates(q, taxid, signal){
+  q = q.trim();
+  if (ACC_RE.test(q)){
+    // An isoform accession (P01116-2) resolves to its canonical entry; the isoform id is kept so its own sequence can be shown.
+    const full = q.toUpperCase(), canonical = full.split('-')[0], isoform = full.includes('-') ? full : null;
+    const e = await getJSON(`${UNIPROT}/search?query=${encodeURIComponent(`(accession:${canonical})`)}&fields=${SEARCH_FIELDS}&size=1&format=json`, signal);
+    const list = (e?.results||[]).map(candidateFrom);
+    list.forEach(c => { c.why = isoform ? `isoform ${isoform}` : 'accession'; c.strong = true; c.rank = 999; c.isoform = isoform; });
+    return list;
+  }
+  const org = taxid ? ` AND (organism_id:${taxid})` : '';
+  const term = `"${q.replace(/["()]/g, ' ').trim()}"`;
+  const clauses = [
+    `((gene_exact:${term}) OR (protein_name:${term}))${org}`,   // exact gene token or phrase in a protein name
+    `(gene:${term})${org}`,                                      // any gene-name field, looser
+    `(${term})${org}`                                            // free text, last resort
+  ];
+  const seen = new Set(), out = [];
+  for (const clause of clauses){
+    const d = await getJSON(`${UNIPROT}/search?query=${encodeURIComponent(clause)}&fields=${SEARCH_FIELDS}&size=50&format=json`, signal);
+    for (const e of (d?.results||[])) if (!seen.has(e.primaryAccession)){ seen.add(e.primaryAccession); out.push(candidateFrom(e)); }
+    if (out.length) break;   // fall through to the looser clauses only when the precise one finds nothing
+  }
+  return rankCandidates(out, q).slice(0, 30);
+}
+
+// Load without asking only when exactly one reviewed entry is a strong (gene/name/entry-name) match.
+function unambiguous(list){
+  const strongReviewed = list.filter(c => c.strong && c.reviewed);
+  if (strongReviewed.length === 1) return strongReviewed[0];
+  if (strongReviewed.length === 0 && list.filter(c => c.strong).length === 1) return list.find(c => c.strong);
+  return null;
+}
+
+const MATCH_SUFFIX = {
+  loaded: ' — showing the highlighted one; pick another if that isn’t the protein you meant.',
+  choose: ' — several fit equally well, so choose the one you want.'
+};
+function renderMatches(list, q, loadedAcc){
+  const box = $('matches'), lst = $('matches-list'), ttl = $('matches-title');
+  if (!list.length){ box.hidden = true; lst.innerHTML = ''; return; }
+  const n = list.length;
+  ttl.innerHTML = `<b>${n} UniProt match${n===1?'':'es'}</b> for “${esc(q)}”<span id="matches-suffix">${MATCH_SUFFIX[loadedAcc ? 'loaded' : 'choose']}</span>`;
+  lst.innerHTML = list.map((c,i) => `<button type="button" class="m${c.acc===loadedAcc?' loaded':''}" role="option" aria-selected="${c.acc===loadedAcc}" data-i="${i}" data-acc="${esc(c.acc)}">
+      <span class="g">${esc(c.gene || '—')}</span>
+      <span class="d">${esc(c.name)}<span class="badge ${c.reviewed?'':'un'}">${c.reviewed?'reviewed':'unreviewed'}</span>${c.why ? `<span class="badge why">${esc(c.why)}</span>` : ''}<small><em>${esc(c.organism)}</em>${c.common ? ` (${esc(c.common)})` : ''}</small></span>
+      <span class="a">${esc(c.acc)}<small>${esc(c.id)} · ${c.length} aa</small></span>
+    </button>`).join('');
+  lst.querySelectorAll('.m').forEach(el => el.addEventListener('click', () => loadCandidate(list[+el.dataset.i], q)));
+  box.hidden = false; lst.hidden = false; $('matches-toggle').textContent = 'Hide';
+}
+
+// ---------- PDB cross-references ----------
+// UniProt lists every PDB entry with a "Chains" property such as "A/B=94-312, C=1-50": the stretch of THIS sequence that each
+// deposited chain contains, already in UniProt numbering. That is construct coverage, not resolved residues — a residue inside a
+// range can still be missing from the density (MobiDB's missing-residue tracks say which).
+function mergeFrags(frags){
+  const out = [];
+  for (const f of [...frags].sort((a,b) => a.start-b.start || a.end-b.end)){
+    const last = out[out.length-1];
+    if (last && f.start <= last.end+1) last.end = Math.max(last.end, f.end); else out.push({start:f.start, end:f.end});
+  }
+  return out;
+}
+function parsePdbXrefs(xrefs, len){
+  const list = [];
+  for (const x of xrefs){
+    if (x.database !== 'PDB' || !x.id) continue;
+    const method = prop(x,'Method') || 'method not given';
+    const resText = prop(x,'Resolution'), resolution = /^\d/.test(resText) ? parseFloat(resText) : null;
+    const chainsText = prop(x,'Chains');
+    const chains = [], clipped = [], dropped = [];
+    for (const m of chainsText.matchAll(/([^=,\s]+)=(\d+)-(\d+)/g)){
+      const s = +m[2]; let e = +m[3];
+      if (!(s >= 1 && e >= s && s <= len)){ dropped.push(m[0]); continue; }
+      if (e > len){ clipped.push(m[0]); e = len; }
+      chains.push({chains:m[1], start:s, end:e});
+    }
+    const frags = mergeFrags(chains);
+    const span = frags.reduce((a,f) => a + f.end - f.start + 1, 0);
+    const resLabel = resolution != null ? `${resolution.toFixed(2)} Å` : (resText && resText !== '-' ? resText : 'no resolution given');
+    const entry = {kind:'pdb', i:list.length, id:x.id, method, resolution, resLabel, chains, chainsText, frags, span, clipped, dropped,
+      start: frags[0]?.start ?? 0, end: frags[frags.length-1]?.end ?? 0, color:PDB_COLOR, hl:PDB_COLOR};
+    entry.name = `PDB ${x.id} (${method}${resolution != null ? ', ' + resolution.toFixed(1) + ' Å' : ''})`;
+    list.push(entry);
+  }
+  return list;
+}
+// Per-residue count of PDB entries (an entry with several chains counts once), run-length encoded for drawing.
+function pdbCoverage(list, len){
+  const cov = new Uint32Array(len+1);
+  for (const e of list) for (const f of e.frags) for (let p=f.start; p<=f.end; p++) cov[p]++;
+  const segs = []; let covered = 0, max = 0;
+  for (let p=1; p<=len; p++){
+    const n = cov[p];
+    if (n){ covered++; if (n > max) max = n; }
+    const last = segs[segs.length-1];
+    if (last && last.n === n) last.end = p; else segs.push({start:p, end:p, n});
+  }
+  return {cov, segs: segs.filter(s => s.n > 0), covered, max};
+}
+
+function parseEntry(e){
+  const pd = e.proteinDescription || {};
+  const seq = e.sequence?.value || '';
+  const feats = (e.features||[]).filter(f => f.location?.start?.value && f.location?.end?.value);
+  const gene = e.genes?.[0]?.geneName?.value || '';
+  const xrefs = e.uniProtKBCrossReferences || [];
+  const ens = xrefs.find(x => ENSEMBL_HOSTS[x.database]);
+  const hpa = xrefs.find(x => x.database==='HPA')?.id || '';
+  const regions = feats.filter(f => REGION_TYPES.has(f.type)).map(f => {
+    const desc = f.description || f.type, dis = /disorder/i.test(desc) && f.type === 'Region', bias = f.type === 'Compositional bias';
+    const ev = evidenceLabel(f);
+    const mobidb = (f.evidences||[]).some(e => /MobiDB/i.test(e.id || ''));
+    // MobiDB-lite calls are predictions: say so in the name, and name the method.
+    const name = dis ? (ev.experimental ? 'Disordered (experimental evidence)' : ev.predicted ? 'Predicted disorder' : 'Disordered (evidence: ' + ev.text + ')') : desc;
+    const typeLabel = dis ? (mobidb ? 'MobiDB-lite via UniProt · conservative consensus of long IDRs' : ev.text)
+                    : bias ? `Compositional bias · ${mobidb ? 'MobiDB-lite via UniProt' : ev.text} · describes composition, not disorder by itself`
+                    : `${f.type} · ${ev.text}`;
+    return {kind:'region', type:f.type, typeLabel, name, disordered:dis, bias, evidence:ev, frags:[{start:f.location.start.value, end:f.location.end.value}], start:f.location.start.value, end:f.location.end.value, color: dis ? '#7A8A9A' : bias ? '#C9A227' : '#9AA3B2', hl: REGION_HL};
+  }).sort((a,b) => a.start-b.start);
+  const pdb = parsePdbXrefs(xrefs, seq.length);
+  return {
+    acc: e.primaryAccession, id: e.uniProtkbId,
+    pdb, pdbCov: pdbCoverage(pdb, seq.length),
+    name: pd.recommendedName?.fullName?.value || pd.submissionNames?.[0]?.fullName?.value || e.uniProtkbId,
+    gene, organism: e.organism?.scientificName || '', seq, length: seq.length, regions,
+    uniprotDomains: feats.filter(f => f.type==='Domain').map(f => ({id:'', name:f.description || 'Domain', frags:[{start:f.location.start.value, end:f.location.end.value}], start:f.location.start.value, end:f.location.end.value, source:'UniProt'})),
+    pdbCount: pdb.length,
+    ensemblUrl: ens ? `https://${ENSEMBL_HOSTS[ens.database]}.ensembl.org/id/${(prop(ens,'GeneId') || ens.id).split('.')[0]}` : '',
+    hpaUrl: hpa ? `https://www.proteinatlas.org/${hpa}${gene ? '-'+gene : ''}` : ''
+  };
+}
+
+// ---------- InterPro: Pfam domains ----------
+// Every InterPro "location" is one occurrence of a domain (a discontinuous occurrence has several fragments),
+// so a protein with two SH3 domains yields two separate items that share one family colour.
+async function loadPfam(acc, fallback, signal){
+  let list = null, error = null;
+  try {
+    let url = `${INTERPRO}/${acc}?page_size=100`, pages = 0;
+    list = [];
+    while (url && pages++ < 10){
+      const d = await getJSON(url, signal);
+      for (const r of (d?.results||[])){
+        const m = r.metadata || {};
+        for (const loc of (r.proteins||[]).flatMap(p => p.entry_protein_locations||[])){
+          const frags = (loc.fragments||[]).map(f => ({start:+f.start, end:+f.end})).filter(f => f.start && f.end).sort((a,b) => a.start-b.start);
+          if (frags.length) list.push({id:m.accession, name:m.name || m.accession, frags, start:frags[0].start, end:frags[frags.length-1].end, source:'InterPro'});
+        }
+      }
+      url = d?.next || null;
+    }
+  } catch (err){ if (signal?.aborted) throw err; console.warn('InterPro unavailable', err); list = null; error = err; }
+  const source = list===null ? (fallback.length ? 'uniprot' : 'none') : 'interpro';
+  if (list===null) list = fallback.slice();
+  list.sort((a,b) => a.start-b.start || a.end-b.end);
+  const familyColor = {}, copies = {};
+  let nFam = 0;
+  for (const d of list){
+    const key = d.id || d.name;
+    if (!(key in familyColor)) familyColor[key] = DOMAIN_COLORS[nFam++ % DOMAIN_COLORS.length];
+    copies[key] = (copies[key]||0) + 1;
+  }
+  const seen = {};
+  for (const d of list){
+    const key = d.id || d.name;
+    d.kind = 'pfam'; d.color = familyColor[key]; d.hl = d.color; d.copies = copies[key]; d.copy = (seen[key] = (seen[key]||0) + 1);
+    d.label = d.copies > 1 ? `${d.name} (${d.copy} of ${d.copies})` : d.name;
+  }
+  return {list, source, families: nFam, error};
+}
+
+// ---------- MobiDB: disorder tracks ----------
+function trackFrom(key, val){
+  for (const d of TRACK_DEFS){
+    const m = key.match(d.re);
+    if (!m) continue;
+    const regions = (val?.regions || []).map(r => Array.isArray(r) ? {start:+r[0], end:+r[1]} : {start:+r.start, end:+r.end}).filter(r => r.start && r.end && r.end >= r.start).sort((a,b) => a.start-b.start);
+    return {key, group:d.group, summary:!!d.summary, on: typeof d.on === 'function' ? d.on(m) : d.on, color:d.color, short:d.short(m), label:d.label(m), desc:d.desc(m), regions, source:'MobiDB'};
+  }
+  return null;
+}
+// Every imported track is only overlaid after MobiDB's sequence has been checked against the UniProt sequence on screen.
+async function loadDisorder(acc, seq, signal){
+  let d;
+  try { d = await getJSON(`${MOBIDB}?acc=${encodeURIComponent(acc)}&format=json`, signal); }
+  catch (err){
+    if (signal?.aborted) throw err;
+    if (err.status === 404) return {status:'none', message:'MobiDB has no entry for this accession.', tracks:[]};
+    return {status:'error', message:`MobiDB data unavailable: ${err.message}.`, tracks:[]};
+  }
+  if (Array.isArray(d)) d = d.find(x => x?.acc === acc);
+  if (d?.acc && d.acc !== acc) return {status:'error', message:'MobiDB returned a different accession; its annotations were not overlaid.', tracks:[]};
+  if (!d || typeof d !== 'object') return {status:'none', message:'MobiDB returned no record for this accession.', tracks:[]};
+  if (typeof d.sequence !== 'string' || !d.sequence) return {status:'error', message:'MobiDB data unavailable: the record carries no sequence, so its coordinates could not be verified against the UniProt sequence.', tracks:[]};
+  if (d.sequence !== seq) return {status:'mismatch', message:`MobiDB data unavailable: its sequence (${d.sequence.length} aa) differs from the UniProt sequence shown (${seq.length} aa), so its coordinates were not overlaid.`, tracks:[]};
+  const tracks = [];
+  for (const [k, v] of Object.entries(d)){
+    if (!/^(curated-disorder|homology-disorder|derived-|prediction-disorder)/.test(k) || !v || typeof v !== 'object' || !Array.isArray(v.regions)) continue;
+    const t = trackFrom(k, v);
+    if (t){
+      if (t.regions.some(r => !Number.isInteger(r.start) || !Number.isInteger(r.end) || r.start < 1 || r.end > seq.length)) return {status:'error', message:'MobiDB returned coordinates outside the verified sequence; its annotations were not overlaid.', tracks:[]};
+      tracks.push(t);
+    }
+  }
+  // within each group: sources first, then that group's summary tracks; individual structures alphabetically
+  const order = ['curated','derived','structures','prediction','proxy'];
+  tracks.sort((a,b) => order.indexOf(a.group) - order.indexOf(b.group) || (a.summary - b.summary) || (a.group === 'structures' ? a.key.localeCompare(b.key) : TRACK_DEFS.findIndex(x => x.re.test(a.key)) - TRACK_DEFS.findIndex(x => x.re.test(b.key))));
+  return {status:'ok', message:'', tracks, url:`https://mobidb.org/${acc}`};
+}
+// Stretches of low model confidence, smoothed: gaps of ≤3 confident residues are bridged, stretches shorter than 10 dropped.
+function lowPlddtRegions(arr, thr = 50, minLen = 10, gap = 3){
+  const out = []; let start = null, last = null;
+  const flush = () => { if (start !== null && last-start+1 >= minLen) out.push({start,end:last}); start = last = null; };
+  for (let i=1;i<arr.length;i++){
+    const v = arr[i];
+    if (!Number.isFinite(v)){ flush(); continue; } // Never bridge unmodelled residues.
+    if (v < thr){
+      if (start !== null && i-last > gap+1) flush();
+      if (start === null) start = i;
+      last = i;
+    }
+  }
+  flush(); return out;
+}
+function syncLocalTrack(){
+  const dis = state.disorder; if (!dis) return;
+  dis.tracks = dis.tracks.filter(t => t.key !== 'local-low-plddt');
+  if (state.plddt){
+    const t = {key:'local-low-plddt', group:'proxy', on:true, color:'#FF7D45', short:'low pLDDT', label:'Low AlphaFold confidence (pLDDT < 50; gaps of ≤ 3 confident residues bridged; merged spans ≥ 10 residues)', desc:'computed here from the loaded model: each span may contain a few residues above 50 where short gaps were bridged; low confidence often coincides with disorder but is not a disorder prediction', regions: lowPlddtRegions(state.plddt), source:'this page'};
+    dis.tracks.push(t);
+  }
+}
+function renderDisorder(){
+  const dis = state.disorder, box = $('dis');
+  if (!dis){ box.innerHTML = '<div class="empty">Loading MobiDB annotations…</div>'; return; }
+  if (dis.status !== 'ok'){
+    $('dis-sub').textContent = 'MobiDB';
+    const local = dis.tracks.find(t => t.group === 'proxy');
+    box.innerHTML = `<div class="empty">${esc(dis.message)}</div>` + (local ? renderTrackGroup('proxy', [local]) : '');
+    wireTracks(); return;
+  }
+  const mobi = dis.tracks.filter(t => t.source === 'MobiDB'), nStruct = mobi.filter(t => t.group === 'structures').length, nSum = mobi.filter(t => t.summary).length, n = mobi.length - nStruct - nSum;
+  $('dis-sub').innerHTML = `${n} MobiDB annotation track${n===1?'':'s'}${nSum ? ` + ${nSum} summar${nSum===1?'y':'ies'}` : ''}${nStruct ? ` + ${nStruct} individual structure${nStruct===1?'':'s'}` : ''}, sequence verified against UniProt · <a href="${dis.url}" target="_blank" rel="noopener" style="color:inherit">MobiDB entry with references</a>`;
+  if (!dis.tracks.length){ box.innerHTML = '<div class="empty">MobiDB returned a record but no disorder annotations for this protein.</div>'; return; }
+  const groups = ['curated','derived','structures','prediction','proxy'];
+  let html = '';
+  for (const g of groups){
+    const ts = dis.tracks.filter(t => t.group === g);
+    if (!ts.length){ if (g === 'curated') html += `<div class="dgroup">${TRACK_GROUPS[g][0]}<small>none in MobiDB for this protein — absence of a curated region does not establish that it is ordered</small></div>`; continue; }
+    if (g === 'structures'){
+      // hundreds of per-chain records for well-studied proteins: render lazily, and cap the list
+      html += `<details class="dstruct"><summary><span class="dgroup" style="margin:0">${TRACK_GROUPS[g][0]} · ${ts.length}<small>${TRACK_GROUPS[g][1]}${ts.length > MAX_STRUCTURE_ROWS ? ` · first ${MAX_STRUCTURE_ROWS} shown, the rest on MobiDB` : ''}</small></span></summary><div class="dstruct-body"></div></details>`;
+      continue;
+    }
+    html += renderTrackGroup(g, ts);
+  }
+  box.innerHTML = html;
+  const det = box.querySelector('details.dstruct');
+  if (det) det.addEventListener('toggle', () => {
+    const body = det.querySelector('.dstruct-body');
+    if (!det.open || body.dataset.done) return;
+    body.innerHTML = renderTrackRows(dis.tracks.filter(t => t.group === 'structures').slice(0, MAX_STRUCTURE_ROWS)); body.dataset.done = '1'; wireTracks(body);
+  });
+  wireTracks();
+}
+function renderTrackGroup(g, ts){
+  return `<div class="dgroup">${TRACK_GROUPS[g][0]}<small>${TRACK_GROUPS[g][1]}</small></div>` + renderTrackRows(ts);
+}
+function renderTrackRows(ts){
+  return ts.map(t => {
+    const chip = r => `<button type="button" data-s="${r.start}" data-e="${r.end}" aria-label="Select residues ${r.start} to ${r.end}">${r.start}–${r.end}</button>`;
+    const rg = t.regions.length ? t.regions.slice(0,12).map(chip).join('') + (t.regions.length > 12 ? `<details><summary>${t.regions.length-12} more ranges</summary>${t.regions.slice(12).map(chip).join('')}</details>` : '') : '<em>no regions in this track</em>';
+    return `<div class="trk${t.on?'':' off'}" data-key="${esc(t.key)}"><input type="checkbox" ${t.on?'checked':''} aria-label="draw ${esc(t.label)} in the architecture"><i style="background:${t.color}"></i><div class="n">${esc(t.label)}${t.summary ? '<span class="badge un">summary</span>' : ''}<small>${esc(t.desc)}</small><div class="rg">${rg}</div></div></div>`;
+  }).join('');
+}
+function wireTracks(root = $('dis')){
+  root.querySelectorAll('.trk input').forEach(inp => inp.addEventListener('change', () => {
+    const key = inp.closest('.trk').dataset.key, t = state.disorder?.tracks.find(x => x.key === key);
+    if (t){ t.on = inp.checked; inp.closest('.trk').classList.toggle('off', !t.on); renderArchitecture(); }
+  }));
+  root.querySelectorAll('.rg button').forEach(el => el.addEventListener('click', e => { e.preventDefault(); selectRange(+el.dataset.s, +el.dataset.e); ensureViewerVisible(); }));
+}
+
+// ---------- AlphaFold ----------
+// Throws an error with .noModel=true when AlphaFold DB simply has no entry, so the UI can tell that apart from a network failure.
+const AA3 = {ALA:'A',ARG:'R',ASN:'N',ASP:'D',CYS:'C',GLN:'Q',GLU:'E',GLY:'G',HIS:'H',ILE:'I',LEU:'L',LYS:'K',MET:'M',PHE:'F',PRO:'P',SER:'S',THR:'T',TRP:'W',TYR:'Y',VAL:'V',MSE:'M',SEC:'U',PYL:'O'};
+// One entry per CA atom, in file order: model residue number, one-letter code, pLDDT.
+function parseModel(pdb){
+  const res = [];
+  for (const line of pdb.split('\n')){
+    if (!line.startsWith('ATOM') || line.slice(12,16).trim() !== 'CA') continue;
+    const b = parseFloat(line.slice(60,66));
+    res.push({resi:Number(line.slice(22,26).trim()), chain:line[21], insertion:line[26]?.trim(),
+      aa:AA3[line.slice(17,20).trim()] || 'X', b:Number.isFinite(b) && b>=0 && b<=100 ? b : null});
+  }
+  return res;
+}
+// Establish model-residue → UniProt-position mapping by checking every model residue's amino acid against the UniProt
+// sequence. Tries the model's own numbering first, then the fragment offset AlphaFold DB reports. Returns null if nothing fits.
+function mapModel(res, seq, meta){
+  if (!res.length || !seq) return null;
+  const first = res[0].resi, last = res[res.length-1].resi;
+  // AlphaFold monomer fragments should be a single, continuous, uniquely numbered chain.
+  if (res.some((r,i) => !Number.isInteger(r.resi) || r.resi < 1 || r.resi !== first+i || r.chain !== res[0].chain || r.insertion || r.aa === 'X')) return null;
+  const start = meta?.uniprotStart == null ? first : Number(meta.uniprotStart);
+  const end = start + res.length - 1;
+  if (!Number.isInteger(start) || start < 1 || end > seq.length) return null;
+  if (meta?.uniprotEnd != null && Number(meta.uniprotEnd) !== end) return null;
+  const fragment = seq.slice(start-1, end);
+  if (res.map(r => r.aa).join('') !== fragment) return null;
+  // Metadata sometimes carries the full sequence and sometimes the fragment sequence.
+  if (meta?.uniprotSequence && meta.uniprotSequence !== seq && meta.uniprotSequence !== fragment) return null;
+  return {offset:start-first, firstResi:first, lastResi:last, start, end, full:start===1 && end===seq.length};
+}
+// Throws an error with .noModel=true when AlphaFold DB simply has no entry, so the UI can tell that apart from a network failure.
+// Among several entries (large proteins come as overlapping fragments), the one whose residues verify against the UniProt
+// sequence is used; if none verifies, the model is still returned but with map=null so coordinate-dependent features switch off.
+async function loadAlphaFold(acc, seq, signal){
+  let arr;
+  try { arr = await getJSON(`${AFDB}/${acc}`, signal); }
+  catch (err){ if (err.status===404){ const e = new Error('no model'); e.noModel = true; throw e; } throw err; }
+  if (!Array.isArray(arr)) throw new Error('invalid AlphaFold metadata response');
+  // AlphaFold DB renamed its metadata fields (announced 10 July 2025; legacy names sunset 25 June 2026):
+  // entryId → modelEntityId, uniprotStart/End → sequenceStart/End, uniprotSequence → sequence. Accept either
+  // generation and work with the legacy names internally, so a fragment's authoritative offset is never lost.
+  arr = arr.map(m => m && typeof m === 'object' ? {...m,
+    entryId: m.modelEntityId ?? m.entryId,
+    uniprotStart: m.sequenceStart ?? m.uniprotStart,
+    uniprotEnd: m.sequenceEnd ?? m.uniprotEnd,
+    uniprotSequence: m.sequence ?? m.uniprotSequence} : m);
+  if (!arr.length){ const e = new Error('no model'); e.noModel = true; throw e; }
+  const order = [...arr].sort((a,b) => (b.uniprotSequence === seq) - (a.uniprotSequence === seq) || (a.uniprotStart||0) - (b.uniprotStart||0));
+  // Every listed model is tried until one verifies against the sequence, up to AF_MAX_TRIES model files; if the cap
+  // is reached without a mapping the note says so, rather than silently pretending the rest did not exist.
+  let chosen = null, lastErr = null, tried = 0;
+  for (const meta of order){
+    if (tried >= AF_MAX_TRIES) break;
+    tried++;
+    if (typeof meta?.pdbUrl !== 'string' || !meta.pdbUrl){ lastErr = new Error('an AlphaFold entry listed no model file'); continue; }
+    let pdb;
+    try { pdb = await getText(meta.pdbUrl, signal); } catch (err){ if (signal?.aborted) throw err; lastErr = err; continue; }
+    const res = parseModel(pdb);
+    if (!res.length){ lastErr = new Error('model file contains no alpha-carbon residues'); continue; }
+    const map = mapModel(res, seq, meta);
+    if (!chosen || map) chosen = {pdb, meta, res, map};
+    if (map) break;
+  }
+  if (!chosen) throw lastErr || new Error('model file unavailable');
+  const {meta, map} = chosen, notes = [];
+  if (!map && order.length > tried) notes.push(`only the first ${tried} of ${order.length} AlphaFold models were tried`);
+  const fragments = arr.length > 1 && arr.every(m => m.uniprotStart && m.uniprotEnd) && new Set(arr.map(m => `${m.uniprotStart}-${m.uniprotEnd}`)).size > 1;
+  if (!map) notes.push(`the AlphaFold model could not be mapped unambiguously to the UniProt sequence shown${meta.uniprotSequence ? ` (model: ${meta.uniprotSequence.length} aa, UniProt: ${seq.length} aa)` : ''}, so the per-residue confidence track, domain colouring and residue highlighting are switched off; the model is still shown, coloured by the confidence values stored in the model file itself`);
+  else if (fragments) notes.push(`AlphaFold DB lists ${arr.length} models with different sequence coverage; showing residues ${map.start}–${map.end}, verified against the UniProt sequence; residues outside it have no model here`);
+  else if (arr.length > 1) notes.push(`AlphaFold DB lists ${arr.length} models for this accession; showing ${meta.entryId || 'the one'} whose residues verify against the UniProt sequence`);
+  else if (!map.full) notes.push(`the AlphaFold model covers residues ${map.start}–${map.end} only (verified against the UniProt sequence)`);
+  return {pdb: chosen.pdb, meta, res: chosen.res, map, notes};
+}
+// pLDDT indexed by UniProt position, using the verified mapping.
+function plddtByPosition(res, map){
+  const arr = [];
+  for (const r of res) arr[r.resi + map.offset] = r.b;
+  return arr;
+}
+// Convert UniProt positions to model residue numbers, dropping positions the model does not cover.
+function toModelResi(frags){
+  const m = state.afMap; if (!m) return [];
+  return residues(frags).map(p => p - m.offset).filter(r => r >= m.firstResi && r <= m.lastResi);
+}
+function plddtStats(arr){
+  const vals = arr.filter(v => Number.isFinite(v) && v>=0 && v<=100), n = vals.length;   // arr may be a per-position array or a plain list of values
+  if (!n) return null;
+  const mean = vals.reduce((a,b) => a+b, 0)/n;
+  const cut = [[90,101],[70,90],[50,70],[0,50]];
+  const bands = cut.map(([lo,hi]) => vals.filter(v => v>=lo && v<hi).length/n);
+  const hist = new Array(20).fill(0);
+  for (const v of vals) hist[Math.min(19, Math.floor(v/5))]++;
+  return {mean, bands, hist, n};
+}
+
+// ---------- 3D ----------
+function initViewer(){
+  viewer = $3Dmol.createViewer($('viewer'), {backgroundColor:T().bg, antialias:true});
+}
+// 3Dmol's setHoverable only applies to models that exist when it is called, so it must be re-applied after every addModel.
+function enableHover(){
+  viewer.setHoverable({}, true,
+    atom => {
+      if (!atom) return;
+      clearHover();
+      const conf = Number.isFinite(atom.b) ? `   pLDDT ${atom.b.toFixed(0)}` : '';
+      state.hoverLabel = viewer.addLabel(`${atom.resn}${state.afMap ? atom.resi + state.afMap.offset : atom.resi}${state.afMap?.offset ? ' (model '+atom.resi+')' : ''}${conf}`, {position:{x:atom.x,y:atom.y,z:atom.z}, backgroundColor:'#1E2433', backgroundOpacity:0.9, fontColor:'#fff', fontSize:12, borderThickness:0, inFront:true});
+      viewer.render();
+    },
+    () => { clearHover(); viewer.render(); });
+}
+function clearHover(){ if (state.hoverLabel){ viewer.removeLabel(state.hoverLabel); state.hoverLabel = null; } }
+
+function domainColorMap(){
+  const map = {};
+  for (const d of state.pfam) for (const p of residues(d.frags)) map[p] = d.color;
+  return map;
+}
+function showModel(pdb){
+  if (!viewer){ setStatus('3D viewer unavailable (3Dmol.org script did not load)'); return false; }
+  viewer.removeAllModels(); viewer.removeAllLabels(); state.hoverLabel = null;
+  model = viewer.addModel(pdb, 'pdb');
+  enableHover();
+  restyle(); viewer.zoomTo(); viewer.render();
+  return true;
+}
+function clearModel(){
+  model = null;
+  if (viewer){ viewer.removeAllModels(); viewer.removeAllLabels(); state.hoverLabel = null; viewer.render(); }
+}
+function restyle(){
+  updateLegend();
+  if (!model) return;
+  viewer.removeAllLabels(); state.hoverLabel = null;
+  const mode = $('mode').value;
+  let base;
+  const mapped = !!state.afMap, off = state.afMap?.offset || 0;
+  if (mapped && (state.active || state.range)) base = {cartoon:{color:T().grey}};
+  else if (mode==='plddt') base = {cartoon:{colorfunc: a => plddtColor(a.b)}};
+  else if (mode==='domain'){ const map = domainColorMap(); base = mapped ? {cartoon:{colorfunc: a => map[a.resi + off] || T().grey}} : {cartoon:{color:T().grey}}; }
+  else base = {cartoon:{color:'spectrum'}};
+  viewer.setStyle({}, base);
+  if (mapped && state.active){ const sel = toModelResi(state.active.frags); if (sel.length) viewer.addStyle({resi: sel}, {cartoon:{color: state.active.hl || state.active.color}}); }
+  if (mapped && state.range){
+    const r = state.range, sel = toModelResi([r]);
+    if (sel.length){
+      viewer.addStyle({resi: sel}, {cartoon:{color:SEL}});
+      if (r.end-r.start < 40) viewer.addStyle({resi: sel}, {stick:{color:SEL, radius:0.25}});
+      const mid = sel[Math.floor(sel.length/2)];
+      const text = r.start===r.end ? `${state.entry?.seq[r.start-1] || ''}${r.start}` : `${r.start}–${r.end}`;
+      viewer.addLabel(text, {backgroundColor:T().labelBg, backgroundOpacity:0.92, fontColor:SEL, fontSize:13, borderColor:SEL, borderThickness:1, inFront:true}, {resi:mid, atom:'CA'});
+    }
+  }
+  viewer.render();
+}
+function updateLegend(){
+  const el = $('legend'), mode = $('mode').value;
+  const info = $('selinfo');
+  const selection = state.active?.frags || (state.range ? [state.range] : []);
+  const selectedCount = new Set(residues(selection)).size;
+  const mappedCount = state.afMap ? new Set(toModelResi(selection)).size : 0;
+  let unmapped = '';
+  if (model && selectedCount){
+    if (!state.afMap) unmapped = ' (not shown in 3D: model not mapped to this sequence)';
+    else if (!mappedCount) unmapped = ` (outside loaded model coverage: ${state.afMap.start}–${state.afMap.end}; nothing shown in 3D)`;
+    else if (mappedCount < selectedCount) unmapped = ` (partially shown in 3D: ${mappedCount} of ${selectedCount} selected residues; model covers ${state.afMap.start}–${state.afMap.end})`;
+  }
+  info.textContent = (state.active ? `${state.active.name}` : state.range ? (state.range.start===state.range.end ? `residue ${state.range.start}` : `residues ${state.range.start}–${state.range.end}`) : 'click a domain or residues to highlight') + unmapped;
+  const extra = state.active ? `<span class="spacer"></span><span><i style="background:${state.active.hl || state.active.color}"></i>${esc(state.active.name)} ${state.active.frags.map(f => `${f.start}–${f.end}`).join(', ')}</span>` :
+                state.range ? `<span class="spacer"></span><span><i style="background:${SEL}"></i>selected ${state.range.start===state.range.end ? 'residue '+state.range.start : state.range.start+'–'+state.range.end}</span>` : '';
+  if (!model){ el.innerHTML = ''; return; }
+  if (state.afMap && (state.active || state.range)) el.innerHTML = `<span class="k">${mappedCount ? 'highlight' : 'selection outside model'}</span>${extra.replace('<span class="spacer"></span>','')}${unmapped ? `<span>${esc(unmapped.trim())}</span>` : ''}<span class="spacer"></span><a href="https://alphafold.ebi.ac.uk/entry/${state.acc}" target="_blank" rel="noopener" style="color:inherit">full viewer on AlphaFold DB</a>`;
+  else if (mode==='plddt') el.innerHTML = `<span class="k">pLDDT</span>` + PLDDT.map(([,c,l]) => `<span><i style="background:${c}"></i>${l}</span>`).join('') + `<span class="spacer"></span><a href="https://alphafold.ebi.ac.uk/entry/${state.acc}" target="_blank" rel="noopener" style="color:inherit">full viewer on AlphaFold DB</a>`;
+  else if (mode==='domain' && model && !state.afMap) el.innerHTML = `<span>domain colouring unavailable: the model could not be mapped onto the UniProt sequence</span>`;
+  else if (mode==='domain') el.innerHTML = `<span class="k">${state.pfamSource === 'uniprot' ? 'UniProt domains' : 'Pfam'}</span>` + (state.pfam.length ? state.pfam.filter(d => d.copy===1).map(d => `<span><i style="background:${d.color}"></i>${esc(d.name)}${d.copies>1 ? ` ×${d.copies}` : ''}</span>`).join('') : '<span>no domains to colour</span>') + `<span><i style="background:${T().grey}"></i>outside domains</span>`;
+  else el.innerHTML = `<span><i style="background:#1E3EFF"></i>N-terminus</span><span><i style="background:#FF1E1E"></i>C-terminus</span>`;
+}
+
+// Click, Enter and Space all activate: the highlighting is the page's main action and must be reachable by keyboard.
+function activate(el, fn){
+  el.addEventListener('click', fn);
+  el.addEventListener('keydown', e => {
+    if (e.target !== el) return;   // keydown bubbles: a key press on a link inside the row belongs to that link
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){ e.preventDefault(); fn(e); }
+  });
+}
+
+// ---------- selection ----------
+function selectFeature(f){
+  state.active = (state.active===f) ? null : f;
+  state.range = null; state.anchor = null;
+  refreshAll();
+  zoomToSelection(state.active ? toModelResi(state.active.frags) : [], 0.85);
+}
+function selectResidue(i, extend){
+  if (extend && state.anchor){ state.range = {start: Math.min(state.anchor, i), end: Math.max(state.anchor, i)}; }
+  else if (state.range && state.range.start===i && state.range.end===i){ state.range = null; state.anchor = null; }
+  else { state.range = {start:i, end:i}; state.anchor = i; }
+  state.active = null;
+  refreshAll();
+  zoomToSelection(state.range ? toModelResi([state.range]) : [], state.range && state.range.end===state.range.start ? 0.3 : 0.7);
+}
+function ensureViewerVisible(){
+  const r = $('viewer').getBoundingClientRect(), top = document.querySelector('.topbar')?.getBoundingClientRect().height || 76;
+  if (r.top >= top && r.bottom <= window.innerHeight) return;
+  window.scrollTo({top: window.scrollY + r.top - top - 64, behavior:'smooth'});
+}
+function selectRange(s, e){
+  state.range = {start:s, end:e}; state.anchor = s; state.active = null;
+  refreshAll();
+  zoomToSelection(toModelResi([state.range]), 0.7);
+}
+function zoomToSelection(sel, factor){
+  if (!model) return;
+  if (sel.length){ viewer.zoomTo({resi: sel}); viewer.zoom(factor); } else viewer.zoomTo();
+  viewer.render();
+}
+function clearSelection(){ state.active = null; state.range = null; state.anchor = null; if (!state.entry) return; refreshAll(); if (model){ viewer.zoomTo(); viewer.render(); } }
+function refreshAll(){ restyle(); markLists(); markSequence(); renderArchitecture();  syncSequenceCopyButtons(); }
+
+// ---------- rendering ----------
+function renderHeader(en){
+  $('gene').textContent = en.gene || en.acc;
+  $('meta').innerHTML = `${esc(en.acc)} · ${esc(en.name)} · <em>${esc(en.organism)}</em>`;
+  $('open-uniprot').href = `https://www.uniprot.org/uniprotkb/${en.acc}/entry`;
+  $('links').innerHTML = [
+    `<a href="https://www.uniprot.org/uniprotkb/${en.acc}/entry" target="_blank" rel="noopener">UniProt</a>`,
+    `<a href="https://alphafold.ebi.ac.uk/entry/${en.acc}" target="_blank" rel="noopener">AlphaFold DB</a>`,
+    `<a href="https://www.ebi.ac.uk/interpro/protein/UniProt/${en.acc}/" target="_blank" rel="noopener">InterPro</a>`,
+    en.pdbCount ? `<a href="https://www.uniprot.org/uniprotkb/${en.acc}/entry#structure" target="_blank" rel="noopener">PDB entries</a>` : '',
+    en.ensemblUrl ? `<a href="${en.ensemblUrl}" target="_blank" rel="noopener">Ensembl</a>` : '',
+    en.hpaUrl ? `<a href="${en.hpaUrl}" target="_blank" rel="noopener">Protein Atlas</a>` : ''
+  ].filter(Boolean).join('');
+  $('t-len').textContent = `${en.length} aa`;
+  $('t-plddt').textContent = '–'; $('t-pfam').textContent = '–';
+  $('t-pdb').textContent = en.pdbCount;
+  $('arch-sub').textContent = archSubtitle('Domains');
+  setNote('');
+}
+const archSubtitle = domains => `${domains}, UniProt regions, AlphaFold confidence${state.pdbCov?.segs.length ? ' and PDB coverage' : ''} along the ${state.entry.length}-residue canonical sequence`;
+function setNote(html, warn){
+  const el = $('note'); el.hidden = !html; el.innerHTML = html || ''; el.classList.toggle('warn', !!warn);
+}
+
+function renderPfam(){
+  const list = state.pfam, src = state.pfamSource, fam = state.pfamFamilies;
+  const fromInterPro = src === 'interpro';
+  if (state.entry) $('arch-sub').textContent = archSubtitle(fromInterPro ? 'Pfam domains (InterPro)' : src === 'uniprot' ? 'UniProt domains' : 'Domain annotations unavailable');
+  $('pfam-h').textContent = fromInterPro ? 'Pfam domains' : 'Domains (UniProt)';
+  $('t-pfam-l').textContent = fromInterPro ? (list.length===1 ? 'Pfam domain' : 'Pfam domains') : (list.length===1 ? 'UniProt domain' : 'UniProt domains');
+  if (src === 'none'){
+    $('t-pfam').textContent = '?';
+    $('pfam-sub').textContent = 'InterPro could not be reached';
+    $('pfam').innerHTML = `<div class="empty">Domain annotation unavailable: ${esc(state.pfamError?.message || 'InterPro did not respond')}, and this UniProt entry has no domain annotations of its own.</div>`;
+    return;
+  }
+  $('t-pfam').textContent = list.length;
+  const occ = `${list.length} domain${list.length===1?'':'s'}` + (fromInterPro && fam && fam !== list.length ? ` from ${fam} Pfam famil${fam===1?'y':'ies'}` : '');
+  $('pfam-sub').textContent = list.length
+    ? (fromInterPro ? `${occ} · InterPro · click to highlight` : `InterPro could not be reached — showing UniProt's own domain annotations (${list.length}) · click to highlight`)
+    : 'No Pfam matches in InterPro';
+  $('pfam').innerHTML = list.length
+    ? list.map((d,i) => `<div class="feat" data-kind="pfam" data-i="${i}" tabindex="0" role="button" aria-label="Highlight ${esc(d.label)}, residues ${d.start} to ${d.end}"><i style="background:${d.color}"></i><span class="n">${esc(d.label)}<small>${d.id ? `<a class="ext" href="https://www.ebi.ac.uk/interpro/entry/pfam/${esc(d.id)}/" target="_blank" rel="noopener">${esc(d.id)} on InterPro ↗</a> · ` : ''}<a class="ext" href="https://www.uniprot.org/uniprotkb/${esc(state.acc)}/entry#family_and_domains" target="_blank" rel="noopener">UniProt ↗</a></small></span><span class="r">${d.frags.map(f => `${f.start}–${f.end}`).join(', ')}</span></div>`).join('')
+    : `<div class="empty">No Pfam domains are annotated for this protein.</div>`;
+  if (list.length) $('pfam').insertAdjacentHTML('beforeend', `<p class="hint pfamnote">${fromInterPro ? 'Boundaries are Pfam model matches, not experimentally defined' : 'Boundaries follow UniProt\u2019s curation'} \u2014 see README, section \u201cReading the domain annotations\u201d.</p>`);
+  $('pfam').querySelectorAll('.feat').forEach(el => activate(el, e => { if (e.target.closest('a')) return; selectFeature(state.pfam[+el.dataset.i]); if (state.active) ensureViewerVisible(); }));
+}
+
+function renderRegions(){
+  const list = state.regions;
+  $('regions').innerHTML = list.length
+    ? list.map((d,i) => `<div class="feat" data-kind="region" data-i="${i}" tabindex="0" role="button" aria-label="Highlight ${esc(d.name)}, residues ${d.start} to ${d.end}"><i class="${d.disordered?'hatch':d.bias?'dots':''}" style="${d.disordered||d.bias?'':'background:'+d.color}"></i><span class="n">${esc(d.name)}<small>${esc(d.typeLabel)} · <a class="ext" href="https://www.uniprot.org/uniprotkb/${esc(state.acc)}/entry#family_and_domains" target="_blank" rel="noopener">UniProt ↗</a></small></span><span class="r">${d.start}–${d.end}</span></div>`).join('')
+    : `<div class="empty">No regions of these types annotated in UniProt.</div>`;
+  $('regions').querySelectorAll('.feat').forEach(el => activate(el, e => { if (e.target.closest('a')) return; selectFeature(state.regions[+el.dataset.i]); if (state.active) ensureViewerVisible(); }));
+}
+
+function renderPdb(){
+  const list = state.pdb, pc = state.pdbCov, en = state.entry, box = $('pdb'), sel = $('pdb-sort');
+  if (!en) return;
+  if (!list.length){
+    sel.disabled = true;
+    $('t-pdb-l').textContent = 'PDB structures';
+    $('pdb-sub').textContent = 'UniProt cross-references';
+    box.innerHTML = '<div class="empty">UniProt lists no experimental structure in the PDB for this entry.</div>';
+    return;
+  }
+  sel.disabled = false;
+  const pct = Math.round(100*pc.covered/en.length);
+  const byMethod = {}; for (const e of list) byMethod[e.method] = (byMethod[e.method]||0) + 1;
+  const methods = Object.entries(byMethod).sort((a,b) => b[1]-a[1]).map(([m,n]) => `${n} ${esc(m)}`).join(', ');
+  const unplaced = list.filter(e => !e.frags.length).length;
+  $('t-pdb-l').textContent = `PDB structures · ${pct} % covered`;
+  $('pdb-sub').innerHTML = `${list.length} PDB entr${list.length===1?'y':'ies'} (${methods}) cover ${pc.covered} of ${en.length} residues (${pct} %), up to ${pc.max} deep`
+    + ` · each range is the stretch of this sequence present in that entry's deposited chains, in UniProt numbering; residues inside a range can still be unresolved — MobiDB's missing-residue tracks below say which`
+    + (unplaced ? ` · ${unplaced} entr${unplaced===1?'y gives' : 'ies give'} no residue range` : '')
+    + ` · <a href="https://www.uniprot.org/uniprotkb/${esc(en.acc)}/entry#structure" target="_blank" rel="noopener" style="color:inherit">structure section on UniProt</a> · click to highlight`;
+  const key = sel.value;
+  const order = [...list].sort((a,b) =>
+    key === 'id' ? a.id.localeCompare(b.id)
+    : key === 'resolution' ? ((a.resolution ?? 1e9) - (b.resolution ?? 1e9) || b.span - a.span || a.id.localeCompare(b.id))
+    : (b.span - a.span || (a.resolution ?? 1e9) - (b.resolution ?? 1e9) || a.id.localeCompare(b.id)));
+  const n = state.pdbShowAll ? order.length : Math.min(order.length, PDB_ROWS);
+  const fmt = f => `${f.start}–${f.end}`;
+  const row = e => {
+    const chains = e.chains.map(c => `${esc(c.chains.replace(/\//g, '/'))} ${fmt(c)}`).join(' · ');
+    const flags = [e.clipped.length ? 'range clipped to the sequence length' : '', e.dropped.length ? `range outside the sequence ignored (${esc(e.dropped.join(', '))})` : ''].filter(Boolean).join('; ');
+    const ranges = e.frags.length ? e.frags.slice(0,3).map(fmt).join(', ') + (e.frags.length > 3 ? `, +${e.frags.length-3}` : '') : 'no range';
+    return `<div class="feat" data-kind="pdb" data-i="${e.i}" tabindex="0" role="button" aria-label="Highlight residues in PDB ${esc(e.id)}, ${esc(ranges)}"${e.frags.length ? '' : ' aria-disabled="true"'}>
+      <i style="background:${PDB_COLOR}${e.frags.length ? '' : ';opacity:.3'}"></i>
+      <span class="n"><span class="pid">${esc(e.id)}</span><small>${esc(e.method)} · ${esc(e.resLabel)}${chains ? ' · ' + chains : ' · chains: ' + (e.chainsText ? esc(e.chainsText) : 'not given')}${flags ? ' · ' + flags : ''} · <a class="ext" href="https://www.rcsb.org/structure/${esc(e.id)}" target="_blank" rel="noopener">RCSB ↗</a> · <a class="ext" href="https://www.ebi.ac.uk/pdbe/entry/pdb/${esc(e.id.toLowerCase())}" target="_blank" rel="noopener">PDBe ↗</a></small></span>
+      <span class="r">${esc(ranges)}${e.frags.length ? `<small>${e.span} aa</small>` : ''}</span></div>`;
+  };
+  const keyHtml = `<div class="covkey"><span>coverage depth in the architecture:</span>${[...PDB_DEPTH].reverse().map(([,o,l]) => `<span><i style="background:${PDB_COLOR};opacity:${o}"></i>${l}</span>`).join('')}</div>`;
+  box.innerHTML = keyHtml + order.slice(0, n).map(row).join('')
+    + (order.length > n ? `<button class="quiet small" id="pdb-more" type="button">Show all ${order.length} entries</button>` : '');
+  box.querySelectorAll('.feat').forEach(el => activate(el, ev => {
+    if (ev.target.closest('a')) return;
+    const e = state.pdb[+el.dataset.i]; if (!e.frags.length) return;
+    selectFeature(e); if (state.active) ensureViewerVisible();
+  }));
+  $('pdb-more')?.addEventListener('click', () => { state.pdbShowAll = true; renderPdb(); });
+  markLists();
+}
+
+function markLists(){
+  document.querySelectorAll('.feat').forEach(el => {
+    const list = el.dataset.kind==='pfam' ? state.pfam : el.dataset.kind==='pdb' ? state.pdb : state.regions;
+    el.classList.toggle('active', state.active===list[+el.dataset.i]);
+  });
+}
+
+function renderHistogram(msg){
+  const s = state.stats;
+  if (!s){ $('t-plddt').textContent = '–'; $('hist-sub').textContent = 'AlphaFold pLDDT distribution'; $('hist').innerHTML = `<div class="empty">${esc(msg || 'No AlphaFold model for this entry.')}</div>`; return; }
+  $('t-plddt').textContent = s.mean.toFixed(1);
+  $('hist-sub').textContent = `${s.n} model residues · AlphaFold DB${state.afMap ? '' : ' · distribution only, model not mapped to this sequence'}${state.afNotes?.length ? ' · see note above' : ''}`;
+  const W = 420, H = 118, pad = 16, bw = (W-2*pad)/20, max = Math.max(...s.hist, 1);
+  const bars = s.hist.map((c,i) => { const h = (H-34)*c/max; return `<rect x="${(pad+i*bw+1).toFixed(1)}" y="${(H-22-h).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${plddtColor(i*5+2.5)}"><title>pLDDT ${i*5}–${i*5+5}: ${c} residues</title></rect>`; }).join('');
+  const ticks = [0,25,50,75,100].map(t => `<text x="${(pad+t/5*bw).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="10" fill="${T().tickText}">${t}</text>`).join('');
+  const legend = PLDDT.map(([,c,l],i) => `<span><i style="background:${c}"></i>${Math.round(s.bands[i]*100)}% ${l}</span>`).join('');
+  $('hist').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block"><line x1="${pad}" x2="${W-pad}" y1="${H-22}" y2="${H-22}" stroke="${T().axis}"/>${bars}${ticks}</svg><div class="legend" style="padding:8px 0 0">${legend}</div>`;
+}
+
+function renderSequence(){
+  syncSequenceCopyButtons();
+  const en = state.entry; if (!en) return;
+  const iso = state.isoform;
+  // An isoform's sequence has its own numbering, so domain underlines and structure links (which follow the canonical entry) are switched off.
+  const seq = iso ? iso.seq : en.seq, map = iso ? {} : domainColorMap();
+  const tooLong = !iso && seq.length > 12000;
+  $('seq-sub').textContent = iso ? `Isoform ${iso.acc} sequence, ${seq.length} aa · domain marks and residue selection apply to the canonical sequence only, so they are off here`
+    : tooLong ? `${seq.length} aa · shown as plain text: per-residue selection and domain underlining are off above 12,000 residues`
+    : (state.pfam.length ? `Underlined by ${state.pfamSource === 'uniprot' ? 'UniProt' : 'Pfam'} domain · click a residue to highlight it in the structure` : 'No domains to mark · click a residue to highlight it in the structure');
+  if (iso || tooLong){ $('seq').innerHTML = `<pre class="seq" style="user-select:text">${esc(seq.replace(/(.{60})/g,'$1\n'))}</pre>`; return; }
+  let out = '';
+  for (let i=0;i<seq.length;i+=60){
+    out += `<span class="n">${String(i+1).padStart(5,' ')} </span>`;
+    const stop = Math.min(i+60, seq.length);
+    for (let j=i;j<stop;j++){
+      const p = j+1, c = map[p];
+      const nPdb = state.pdbCov?.cov[p] || 0;
+      out += `<span class="aa${c?' f':''}" data-i="${p}"${c?` style="--fc:${c}"`:''} title="${seq[j]}${p}${state.plddt?.[p]!=null ? ' · pLDDT '+state.plddt[p].toFixed(0) : ''}${nPdb ? ` · in ${nPdb} PDB entr${nPdb===1?'y':'ies'}` : ''}">${seq[j]}</span>`;
+      if (p%10===0 && p<stop) out += ' ';
+    }
+    out += '\n';
+  }
+  $('seq').innerHTML = `<pre class="seq">${out}</pre>`;
+  $('seq').querySelector('pre').addEventListener('click', e => {
+    const t = e.target.closest('.aa'); if (!t) return;
+    selectResidue(+t.dataset.i, e.shiftKey);
+  });
+  markSequence();
+}
+function markSequence(){
+  const pre = $('seq').querySelector('pre'); if (!pre) return;
+  const act = state.active ? new Set(residues(state.active.frags)) : null;
+  const r = state.range, map = domainColorMap();
+  pre.querySelectorAll('.aa').forEach(el => {
+    const p = +el.dataset.i;
+    el.classList.toggle('sel', !!r && p>=r.start && p<=r.end);
+    const on = !!act && act.has(p);
+    el.classList.toggle('act', on);
+    if (on) el.style.setProperty('--fc', state.active.hl || state.active.color);
+    else if (!el.classList.contains('f')) el.style.removeProperty('--fc');
+    else { const c = map[p]; if (c) el.style.setProperty('--fc', c); }
+  });
+}
+
+function renderArchitecture(){
+  const en = state.entry; if (!en) return;
+  const tracks = (state.disorder?.tracks || []).filter(t => t.on && t.regions.length);
+  const pdbSegs = state.pdbCov?.segs || [];
+  const gutter = tracks.length > 0 || pdbSegs.length > 0;   // labelled lanes need the left gutter
+  const W = 900, L = gutter ? 118 : 24, R = 24, inner = W-L-R, len = en.length, sx = inner/len;
+  const X = p => L + (p-1)*sx, XE = p => L + p*sx;
+  const parts = [];
+  let y = 14;
+
+  // UniProt regions above the backbone, packed into lanes (disordered hatched)
+  const lanes = []; for (const d of state.regions){ let k = lanes.findIndex(e => e < d.start); if (k<0){ k = lanes.length; lanes.push(0); } lanes[k] = d.end; d.lane = k; }
+  if (state.regions.length){
+    for (const d of state.regions){
+      const x = X(d.start), w = XE(d.end)-x, top = y + d.lane*16, act = state.active===d;
+      parts.push(`<rect class="hit" data-kind="region" data-i="${state.regions.indexOf(d)}" x="${x.toFixed(1)}" y="${top}" width="${Math.max(2,w).toFixed(1)}" height="11" rx="2" fill="${d.disordered?'url(#hatch)':d.bias?'url(#dots)':T().region}" stroke="${act?REGION_HL:(d.disordered?T().hatchLine:d.bias?'#C9A227':'none')}" stroke-width="${act?2.2:0.8}"><title>${esc(d.name)} — ${esc(d.typeLabel)}, ${d.start}–${d.end}</title></rect>`);
+      const lab = d.disordered ? (d.evidence?.experimental ? 'disordered (experimental)' : d.evidence?.predicted ? 'predicted disorder' : 'disordered') : d.name;
+      if (w >= lab.length*5.8+8) parts.push(`<text x="${(x+w/2).toFixed(1)}" y="${top+8.5}" text-anchor="middle" font-size="9.5" fill="${T().regionText}" pointer-events="none">${esc(lab)}</text>`);
+    }
+    y += lanes.length*16 + 10;
+  }
+
+  // backbone with Pfam domains
+  const yBase = y + 14;
+  parts.push(`<rect x="${L}" y="${yBase-3}" width="${inner}" height="6" rx="3" fill="${T().backbone}"/>`);
+  state.pfam.forEach((d,i) => {
+    const act = state.active===d;
+    for (const f of d.frags){
+      const x = X(f.start), w = XE(f.end)-x, label = `${d.label}${d.id ? ` (${d.id})` : ''}`;
+      parts.push(`<rect class="hit" data-kind="pfam" data-i="${i}" x="${x.toFixed(1)}" y="${yBase-13}" width="${Math.max(2,w).toFixed(1)}" height="26" rx="7" fill="${d.color}" ${act?`stroke="${T().outline}" stroke-width="2"`:''}><title>${esc(label)}, ${f.start}–${f.end}</title></rect>`);
+      const fit = w >= label.length*6.6+10 ? label : (w >= d.name.length*6.6+10 ? d.name : '');
+      if (fit) parts.push(`<text x="${(x+w/2).toFixed(1)}" y="${yBase+4}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff" pointer-events="none">${esc(fit)}</text>`);
+    }
+  });
+  y = yBase + 20;
+
+  // selected range marker
+  if (state.range){
+    const x = X(state.range.start), w = Math.max(2, XE(state.range.end)-x);
+    parts.push(`<rect x="${x.toFixed(1)}" y="${yBase-17}" width="${w.toFixed(1)}" height="34" rx="3" fill="none" stroke="${SEL}" stroke-width="2"/>`);
+  }
+
+  // pLDDT strip
+  if (state.plddt){
+    const bins = Math.min(len, 700), per = len/bins;
+    for (let b=0;b<bins;b++){
+      const s = Math.floor(b*per)+1, e = Math.max(s, Math.floor((b+1)*per));
+      let sum=0, n=0; for (let p=s;p<=e;p++){ const v = state.plddt[p]; if (v!=null){ sum+=v; n++; } }
+      if (!n) continue;
+      parts.push(`<rect x="${X(s).toFixed(1)}" y="${y}" width="${(XE(e)-X(s)+0.6).toFixed(1)}" height="8" fill="${plddtColor(sum/n)}" shape-rendering="crispEdges"><title>${s}${e!==s?'–'+e:''}: mean pLDDT ${(sum/n).toFixed(0)}</title></rect>`);
+    }
+    if (gutter) parts.push(`<text x="${L-8}" y="${y+7.5}" text-anchor="end" font-size="9.5" fill="${T().tickText}">pLDDT</text>`);
+    else parts.push(`<text x="${L}" y="${y+20}" font-size="10" fill="${T().tickText}">pLDDT</text>`);
+    y += 8;
+  }
+
+  // experimental coverage strip: how many PDB entries contain each residue
+  if (pdbSegs.length){
+    if (state.plddt) y += 3;
+    parts.push(`<line x1="${L}" x2="${W-R}" y1="${y+4}" y2="${y+4}" stroke="${T().axis}" stroke-width="1"/>`);
+    for (const s of pdbSegs){
+      parts.push(`<rect class="hitr pdbseg" data-s="${s.start}" data-e="${s.end}" x="${X(s.start).toFixed(1)}" y="${y}" width="${(XE(s.end)-X(s.start)+0.6).toFixed(1)}" height="8" fill="${PDB_COLOR}" fill-opacity="${depthOpacity(s.n)}" shape-rendering="crispEdges"><title>${s.start}${s.end!==s.start?'–'+s.end:''}: in ${s.n} PDB entr${s.n===1?'y':'ies'}</title></rect>`);
+    }
+    parts.push(`<text x="${L-8}" y="${y+7.5}" text-anchor="end" font-size="9.5" fill="${T().tickText}">PDB</text>`);
+    if (state.active?.kind === 'pdb') for (const f of state.active.frags){
+      const x = X(f.start), w = Math.max(2, XE(f.end)-x);
+      parts.push(`<rect x="${x.toFixed(1)}" y="${y-2}" width="${w.toFixed(1)}" height="12" rx="2" fill="none" stroke="${T().outline}" stroke-width="1.6"><title>${esc(state.active.name)}, ${f.start}–${f.end}</title></rect>`);
+    }
+    y += 8;
+  }
+
+  // disorder tracks, one lane each, labelled in the left gutter
+  if (tracks.length){
+    y += 6;
+    for (const t of tracks){
+      parts.push(`<text x="${L-8}" y="${y+7.5}" text-anchor="end" font-size="9.5" fill="${T().tickText}">${esc(t.short)}</text>`);
+      parts.push(`<line x1="${L}" x2="${W-R}" y1="${y+4.5}" y2="${y+4.5}" stroke="${T().axis}" stroke-width="1"/>`);
+      for (const r of t.regions){
+        const x = X(r.start), w = Math.max(1.5, XE(r.end)-x);
+        parts.push(`<rect class="hitr" data-s="${r.start}" data-e="${r.end}" x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="9" rx="2" fill="${t.color}" fill-opacity="0.85"><title>${esc(t.label)} · ${r.start}–${r.end}</title></rect>`);
+      }
+      y += 12;
+    }
+  }
+
+  // ruler
+  const tick = niceTick(len), ry = y+22;
+  const ticks = [1, ...Array.from({length:Math.floor((len-1)/tick)}, (_,i) => (i+1)*tick).filter(t => t < len - tick*0.3), len];
+  for (const t of ticks){ const tx = (t===1?X(1):XE(t)).toFixed(1); parts.push(`<line x1="${tx}" x2="${tx}" y1="${ry}" y2="${ry+5}" stroke="${T().tick}"/>`, `<text x="${tx}" y="${ry+18}" text-anchor="middle" font-size="10" fill="${T().tickText}">${t}</text>`); }
+  const h = ry + 26;
+
+  $('arch').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" width="100%" data-h="${h}" style="display:block;font-family:Inter,system-ui,sans-serif">
+<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${T().hatchBg}"/><line x1="0" y1="0" x2="0" y2="6" stroke="${T().hatchLine}" stroke-width="1.5"/></pattern>
+<pattern id="dots" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="${T().hatchBg}"/><circle cx="2" cy="2" r="1.1" fill="#C9A227"/></pattern></defs>
+${parts.join('\n')}</svg>`;
+  $('arch').querySelectorAll('.hit').forEach(el => { el.style.cursor = 'pointer'; el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+    activate(el, () => selectFeature((el.dataset.kind==='pfam' ? state.pfam : state.regions)[+el.dataset.i])); });
+  $('arch').querySelectorAll('.hitr').forEach(el => { el.style.cursor = 'pointer'; el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+    activate(el, () => selectRange(+el.dataset.s, +el.dataset.e)); });
+}
+
+function downloadSVG(){
+  const svg = $('arch').querySelector('svg'); if (!svg) return;
+  const src = svg.outerHTML.replace('width="100%"', `width="900" height="${svg.dataset.h}"`);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n'+src], {type:'image/svg+xml'}));
+  a.download = `${state.entry?.gene || state.acc}_architecture.svg`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// Plain sequence copying is independent of the 3D viewer and contains no headers or position numbers.
+function selectedSequenceParts(){
+  if (!state.entry || state.isoform) return []; // highlighted annotations use canonical coordinates
+  const seq = state.entry.seq;
+  const ranges = state.range ? [state.range] : (state.active?.frags || []);
+  const valid = ranges.filter(r => Number.isInteger(r.start) && Number.isInteger(r.end) && r.start >= 1 && r.end >= r.start && r.end <= seq.length);
+  if (valid.length !== ranges.length) return [];
+  return mergeFrags(valid).map(r => ({...r, seq:seq.slice(r.start-1, r.end)}));
+}
+function syncSequenceCopyButtons(){
+  const seq = state.entry ? (state.isoform?.seq || state.entry.seq) : '';
+  const full = $('copy-sequence'), selected = $('copy-selected');
+  if (full){ full.disabled = !seq; full.textContent = 'Copy sequence'; }
+  if (selected){
+    const parts = selectedSequenceParts();
+    selected.disabled = !parts.length; selected.textContent = 'Copy selected';
+    selected.title = parts.length ? `Copy ${parts.reduce((n,p) => n+p.seq.length,0)} selected residues${parts.length > 1 ? ', one separate region per line (gaps omitted)' : ''}` : 'Select residues or a feature first';
+  }
+}
+let sequenceCopyAction = 0;
+async function copyPlainSequence(selectedOnly = false){
+  if (!state.entry) return;
+  const parts = selectedOnly ? selectedSequenceParts() : [];
+  // Separate discontinuous regions by newlines rather than inventing a joined sequence or including gaps.
+  const text = selectedOnly ? parts.map(p => p.seq).join('\n') : (state.isoform?.seq || state.entry.seq);
+  if (!text) return;
+  const token = loadSeq, action = ++sequenceCopyAction;
+  const button = $(selectedOnly ? 'copy-selected' : 'copy-sequence');
+  const label = selectedOnly ? 'Copy selected' : 'Copy sequence';
+  const explanation = parts.length > 1 ? ' Each selected region is on its own line; residues in the gaps are omitted.' : '';
+  try {
+    await navigator.clipboard.writeText(text);
+    if (token !== loadSeq || action !== sequenceCopyAction) return;
+    button.textContent = parts.length > 1 ? `Copied ${parts.length} regions` : 'Copied';
+    setTimeout(() => { if (token === loadSeq && action === sequenceCopyAction) button.textContent = label; }, 1500);
+  } catch {
+    if (token !== loadSeq || action !== sequenceCopyAction) return;
+    const dlg = $('sequence-copy-dialog'), area = $('sequence-copy-text');
+    $('sequence-copy-title').textContent = label;
+    $('sequence-copy-help').textContent = 'Automatic copying was unavailable. Copy the selected text below using Ctrl+C or Command+C.' + explanation;
+    area.value = text;
+    if (typeof dlg.showModal === 'function'){
+      if (!dlg.open) dlg.showModal();
+      area.focus(); area.select();
+    } else window.prompt('Copy the sequence:' + explanation, text);
+  }
+}
+
+async function copyFasta(){
+  const en = state.entry; if (!en) return;
+  const token = loadSeq;
+  const iso = state.isoform;
+  const fasta = iso ? iso.fasta : `>${en.id} ${en.name} [${en.organism}]\n${en.seq.replace(/(.{60})/g,'$1\n')}`;
+  try { await navigator.clipboard.writeText(fasta); if (token !== loadSeq) return; $('fasta').textContent = 'Copied'; setTimeout(() => { if (token === loadSeq) $('fasta').textContent = 'Copy FASTA'; }, 1500); }
+  catch { if (token === loadSeq) window.prompt('Copy the sequence:', fasta); }
+}
+
+// ---------- main flow ----------
+let searchSeq = 0;   // ignore results of a search that was superseded by a newer one
+let loadSeq = 0;
+
+// Wipe everything from the previous protein before a new one starts loading, so panels never mix two entries.
+function clearPanels(message){
+  // No message → a load is starting (panels say what they are waiting for); a message → idle state (every panel shows it).
+  const loading = message == null;
+  $('fasta').textContent = 'Copy FASTA';
+  $('gene').textContent = 'Protein'; $('links').innerHTML = '';
+  $('open-uniprot').href = 'https://www.uniprot.org/';
+  $('arch-sub').textContent = 'Canonical sequence annotations'; $('seq-sub').textContent = '';
+  $('t-pfam-l').textContent = 'Pfam domains';
+  for (const id of ['fasta','dlsvg','reset']) $(id).disabled = true;
+  Object.assign(state, {acc:null, entry:null, pfam:[], pfamSource:'interpro', pfamFamilies:0, pfamError:null, regions:[], pdb:[], pdbCov:null, pdbShowAll:false, plddt:null, stats:null, afMap:null, afNotes:[], isoform:null, isoformError:null, active:null, range:null, anchor:null, disorder:null});
+  clearModel();
+  syncSequenceCopyButtons();
+  try { $('sequence-copy-dialog').close(); } catch (e) {}
+  setStatus(loading ? 'Loading…' : 'No structure loaded');
+  $('legend').innerHTML = '';
+  $('t-len').textContent = '–'; $('t-plddt').textContent = '–'; $('t-pfam').textContent = '–'; $('t-pdb').textContent = '–'; $('t-pdb-l').textContent = 'PDB structures';
+  $('pdb-sub').textContent = 'PDB entries cross-referenced by UniProt · click to highlight the covered residues'; $('pdb-sort').disabled = true;
+  $('hist-sub').textContent = 'AlphaFold pLDDT distribution';
+  $('pfam-h').textContent = 'Pfam domains'; $('pfam-sub').textContent = 'InterPro · click to highlight';
+  $('dis-sub').textContent = 'MobiDB · curated evidence, structure-derived annotations and predictors are kept separate';
+  $('selinfo').textContent = 'click a domain or residues to highlight';
+  setNote('');
+  const msgs = loading
+    ? {hist:'Loading the AlphaFold model…', pdb:'Loading…', pfam:'Loading domains…', regions:'Loading…', dis:'Loading MobiDB annotations…', arch:'Loading…', seq:'Loading…'}
+    : {hist:message, pdb:message, pfam:message, regions:message, dis:message, arch:message, seq:message};
+  for (const [id, m] of Object.entries(msgs)) $(id).innerHTML = `<div class="empty">${esc(m)}</div>`;
+}
+
+async function lookup(q, preferAcc){
+  q = q.trim(); if (!q) return;
+  const taxid = $('org').value, mySeq = ++searchSeq;
+  const signal = startRequests();
+  clearPanels('Choose a search result to load its annotations.');
+  ++loadSeq;   // a new search cancels any load still in flight, so an older protein can't land under a newer search
+  $('meta').innerHTML = `<span class="msg">Searching UniProt for ${esc(q)}…</span>`;
+  $('matches').hidden = true;
+  try { history.replaceState(null, '', `?q=${encodeURIComponent(q)}&org=${taxid}`); } catch (e) {}
+  let list;
+  try { list = await searchCandidates(q, taxid, signal); }
+  catch (err){
+    if (mySeq !== searchSeq) return;
+    console.error(err);
+    $('meta').innerHTML = `<span class="msg err">Couldn’t search for “${esc(q)}”: ${esc(err.message)}. If an institutional proxy blocks rest.uniprot.org, the page can't reach UniProt.</span>`;
+    return;
+  }
+  if (mySeq !== searchSeq) return;
+  if (!list.length){
+    $('meta').innerHTML = `<span class="msg err">No UniProt entry matches “${esc(q)}”${taxid?' in the selected organism':''}. Try the accession, another spelling, another organism, or “Any organism”.</span>`;
+    $('gene').textContent = 'Protein'; $('matches').hidden = true;
+    return;
+  }
+  const pick = (preferAcc && list.find(c => c.acc === preferAcc)) || unambiguous(list);
+  if (pick){ renderMatches(list, q, pick.acc); await loadCandidate(pick, q); }
+  else {
+    renderMatches(list, q, null);
+    $('meta').innerHTML = `<span class="msg">${list.length} entries match “${esc(q)}” — pick one from the list above.</span>`;
+    $('gene').textContent = 'Protein';
+  }
+}
+
+// Runs a render step; an exception is a bug in this page, not a data problem, and is shown as such in the panel.
+function renderGuard(panelId, what, fn){
+  try { fn(); }
+  catch (err){
+    console.error(`rendering ${what} failed`, err);
+    const el = $(panelId); if (el) el.innerHTML = `<div class="empty msg err">The data for ${esc(what)} arrived, but this page hit an internal error while drawing it (${esc(err?.message || String(err))}). This is a bug in the page, not in the database; the other panels are unaffected.</div>`;
+  }
+}
+async function loadCandidate(c, q){
+  const taxid = $('org').value, mySeq = ++loadSeq;
+  ++searchSeq; // Choosing a result also invalidates any older search.
+  const signal = startRequests();
+  $('matches-list').querySelectorAll('.m').forEach(el => { const on = el.dataset.acc === c.acc; el.classList.toggle('loaded', on); el.setAttribute('aria-selected', on); });
+  const sfx = $('matches-suffix'); if (sfx) sfx.textContent = MATCH_SUFFIX.loaded;
+  $('meta').innerHTML = `<span class="msg">Loading ${esc(c.acc)} · ${esc(c.name)} (${esc(c.organism)})…</span>`;
+  clearPanels();
+  try {
+    const acc = c.acc;
+    const entryP = getJSON(`${UNIPROT}/${acc}.json`, signal);
+    // Attach a rejection handler immediately: the FASTA request may fail before entryP resolves.
+    const isoP = c.isoform ? getText(`${UNIPROT}/${c.isoform}.fasta`, signal).then(fasta => ({fasta}), error => ({error})) : Promise.resolve(null);
+    const entry = parseEntry(await entryP);
+    if (mySeq !== loadSeq) return;
+    if (c.isoform){
+      try {
+        const result = await isoP;
+        if (result.error) throw result.error;
+        const fasta = result.fasta;
+        if (mySeq !== loadSeq) return;
+        const lines = fasta.trim().split('\n'), isoSeq = lines.slice(1).join('').replace(/\s+/g,'');
+        if (!lines[0].startsWith('>') || !/^[A-Z]+$/.test(isoSeq)) throw new Error('invalid FASTA sequence');
+        state.isoform = {acc: c.isoform, seq: isoSeq, fasta, header: lines[0].replace(/^>/, '')};
+      } catch (err){ if (mySeq !== loadSeq) return; console.warn('isoform sequence unavailable', err); state.isoform = null; state.isoformError = err; }
+    }
+    if (mySeq !== loadSeq) return;
+    state.acc = acc; state.entry = entry; state.regions = entry.regions; state.pdb = entry.pdb; state.pdbCov = entry.pdbCov;
+    renderHeader(entry); renderRegions(); renderPdb(); renderSequence(); renderArchitecture();
+    for (const id of ['fasta','dlsvg','reset']) $(id).disabled = false;
+    if (c.isoform){
+      const iso = state.isoform;
+      $('meta').innerHTML = `${esc(c.isoform)} · ${esc(iso ? iso.header.replace(/^\S+\s/, '').replace(/ OS=.*$/, '') : entry.name)} · <em>${esc(entry.organism)}</em>`;
+      if (iso){
+        $('t-len').textContent = `${iso.seq.length} aa`;
+        setNote(`<b>Isoform ${esc(c.isoform)}</b> — the Sequence panel shows this isoform (${iso.seq.length} aa; canonical is ${entry.length} aa). The structure, domains, regions, disorder tracks and architecture below are retrieved for the canonical entry ${esc(acc)} and use its numbering; this page does not fetch isoform-specific models or annotations.`);
+      } else {
+        setNote(`<b>Isoform ${esc(c.isoform)}</b> — UniProt did not return a sequence for this isoform (${esc(state.isoformError?.message || 'unknown error')}); everything shown is for the canonical entry ${esc(acc)}.`, true);
+      }
+    }
+    try { history.replaceState(null, '', `?q=${encodeURIComponent(q || c.isoform || acc)}&org=${taxid}&acc=${acc}`); } catch (e) {}
+
+    // Each source: the data step may fail for expected reasons (network, 404, mismatch) and is handled by the loader;
+    // the render step must not fail, so an exception there is a programming error and is reported as one, in the panel
+    // it belongs to, without masquerading as "could not load" and without taking the other panels down.
+    const pfamP = loadPfam(acc, entry.uniprotDomains, signal).then(res => renderGuard('pfam', 'domains', () => {
+      if (mySeq !== loadSeq) return;
+      state.pfam = res.list; state.pfamSource = res.source; state.pfamFamilies = res.families; state.pfamError = res.error;
+      renderPfam(); renderSequence(); renderArchitecture(); if (model) restyle();
+    }));
+    const disP = loadDisorder(acc, entry.seq, signal).then(dis => renderGuard('dis', 'disorder annotations', () => {
+      if (mySeq !== loadSeq) return;
+      state.disorder = dis; syncLocalTrack(); renderDisorder(); renderArchitecture();
+    }));
+    const afP = loadAlphaFold(acc, entry.seq, signal).then(af => renderGuard('hist', 'the AlphaFold model', () => {
+      if (mySeq !== loadSeq) return;
+      state.afMap = af.map;
+      state.plddt = af.map ? plddtByPosition(af.res, af.map) : null;      // per-position values exist only when the mapping is verified
+      state.stats = plddtStats(af.map ? state.plddt : af.res.map(r => r.b)); state.afNotes = af.notes;
+      syncLocalTrack(); renderDisorder();
+      if (af.notes.length) setNote(($('note').hidden ? '' : $('note').innerHTML + '<br>') + `<b>AlphaFold note</b> — ${esc(af.notes.join('; '))}.`, !$('note').hidden ? $('note').classList.contains('warn') : af.map === null);
+      renderHistogram(state.stats ? '' : 'The model file contained no residues with confidence values.');
+      if (af.map === null && af.notes.length) $('note').classList.add('warn');
+      const shown = showModel(af.pdb);
+      renderArchitecture(); renderSequence();
+      if (shown) setStatus(`AlphaFold model ${af.meta.entryId || acc}${af.meta.latestVersion ? ' v'+af.meta.latestVersion : ''}`);
+    }), err => {
+      if (mySeq !== loadSeq) return;
+      console.warn(err); clearModel(); state.stats = null; state.plddt = null; state.afMap = null;
+      syncLocalTrack(); renderDisorder(); renderArchitecture(); renderSequence(); updateLegend();
+      if (err.noModel){ renderHistogram('AlphaFold DB has no model for this entry.'); setStatus('No AlphaFold model for this entry'); }
+      else { renderHistogram(`Couldn’t load the AlphaFold model: ${err.message}.`); setStatus(`AlphaFold model not loaded (${err.message})`); }
+    });
+    const settled = await Promise.allSettled([pfamP, afP, disP]);
+    for (const r of settled) if (r.status === 'rejected' && r.reason?.name !== 'AbortError') console.error('unexpected failure while loading a panel', r.reason);
+  } catch (err){
+    if (mySeq !== loadSeq) return;
+    console.error(err);
+    clearPanels('No protein loaded. Try the search again.');
+    $('meta').innerHTML = `<span class="msg err">Couldn’t load ${esc(c.acc)}: ${esc(err.message)}. If an institutional proxy blocks rest.uniprot.org or ebi.ac.uk, the page can't reach the databases.</span>`;
+    setStatus('No structure loaded');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  try { initViewer(); } catch (e){ console.warn('3Dmol unavailable', e); setStatus('3D viewer unavailable (3Dmol.org script did not load)'); }
+  $('f').addEventListener('submit', e => { e.preventDefault(); lookup($('q').value); });
+  $('mode').addEventListener('change', restyle);
+  $('pdb-sort').addEventListener('change', renderPdb);
+  $('reset').addEventListener('click', clearSelection);
+  $('dlsvg').addEventListener('click', downloadSVG);
+  $('copy-sequence').addEventListener('click', () => copyPlainSequence(false));
+  $('copy-selected').addEventListener('click', () => copyPlainSequence(true));
+  $('fasta').addEventListener('click', copyFasta);
+  $('theme').addEventListener('click', () => {
+    const dark = !isDark();
+    if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem('pe-theme', dark ? 'dark' : 'light'); } catch (e) {}
+    if (viewer){ viewer.setBackgroundColor(T().bg); }
+    if (state.entry){ renderArchitecture(); if (state.stats) renderHistogram(); }
+    if (model) restyle(); else updateLegend();
+  });
+  $('matches-toggle').addEventListener('click', () => { const l = $('matches-list'); l.hidden = !l.hidden; $('matches-toggle').textContent = l.hidden ? 'Show' : 'Hide'; });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (/^(input|textarea|select)$/i.test(e.target?.tagName) || e.target?.isContentEditable) return;   // typing in a field: Escape is theirs
+    clearSelection();
+  });
+  const params = new URLSearchParams(location.search);
+  const wanted = params.get('org');
+  if (wanted !== null){
+    if ([...$('org').options].some(o => o.value === wanted)) $('org').value = wanted;
+    else console.warn(`ignoring unknown organism id "${wanted}" from the URL`);
+  }
+  if (params.get('q')){ $('q').value = params.get('q'); lookup(params.get('q'), params.get('acc')); }
+  else $('q').focus();
+});
+</script>
+</body>
+</html>
