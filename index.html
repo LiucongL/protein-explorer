@@ -1514,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('foot-ver').textContent = document.querySelector('.brand .ver')?.textContent || '';
   // Footer links. REPO is the GitHub repository of this file; set it once and the three links follow.
-  const REPO = 'https://github.com/USERNAME/protein-explorer';
+  const REPO = 'https://github.com/liucongl/protein-explorer';
   const link = (href, label) => `<a class="ext" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
   $('foot-links').innerHTML = /USERNAME/.test(REPO)
     ? link('README.md', 'Help / README')

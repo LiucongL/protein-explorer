@@ -6,9 +6,9 @@ Enter a gene name, protein name or UniProt accession, choose an organism, and pr
 
 Current version: **v1.3.7**, also shown beside the app name in the header and in the footer.
 
-- **Open the app:** **[REPLACE WITH YOUR GITHUB PAGES URL]** — no account needed.
-- **Source code and releases:** **[REPLACE WITH YOUR GITHUB REPOSITORY URL]**
-- **Institute download mirror:** **[REPLACE WITH YOUR GITLAB REPOSITORY URL, OR REMOVE THIS LINE]**
+- **Open the app:** **https://liucongl.github.io/protein-explorer/** — no account needed.
+- **Source code and releases:** **https://github.com/liucongl/protein-explorer**
+<!-- Institute download mirror: link shared privately on request. -->
 
 ## How it works
 
@@ -54,13 +54,13 @@ To update a hosted copy, replace `index.html` and redeploy it. Keep the version 
 
 ## Reporting problems
 
-**Issue tracker:** **[REPLACE WITH YOUR GITHUB ISSUES URL]**
+**Issue tracker:** **https://github.com/liucongl/protein-explorer/issues**
 
 Please include the app version, protein accession and organism, browser, steps to reproduce the problem, and what you expected to happen. Include the displayed error or a screenshot when useful.
 
 ## Citing
 
-If you use this tool in your research, please cite the version used. Author, version and release details are kept in `CITATION.cff` in the repository; GitHub shows them under **Cite this repository**. DOI: **[ADD DOI URL AFTER THE FIRST RELEASE]**
+If you use this tool in your research, please cite the version used. Author, version and release details are kept in `CITATION.cff` in the repository; GitHub shows them under **Cite this repository**. 
 
 Also cite the underlying databases according to their guidance, and identify the relevant protein accessions, structure IDs and database versions or access dates so the annotations can be traced.
 
