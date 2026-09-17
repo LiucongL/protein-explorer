@@ -207,7 +207,7 @@ svg text{font-family:Inter,system-ui,sans-serif}
 <body>
 <header class="topbar">
   <div class="topbar-in">
-    <a class="brand" href="?" aria-label="Protein explorer home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg></span><span>protein explorer</span><span class="ver">v1.3.6</span></a>
+    <a class="brand" href="?" aria-label="Protein explorer home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L14 9.5V3"/><path d="M7 15h10"/></svg></span><span>protein explorer</span><span class="ver">v1.3.7</span></a>
     <form id="f" class="search">
       <span class="sicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
       <input id="q" type="text" placeholder="Search gene, protein, or UniProt accession" autocomplete="off" spellcheck="false" aria-label="Gene name, protein name or accession">
@@ -298,7 +298,7 @@ svg text{font-family:Inter,system-ui,sans-serif}
       </div>
       <div class="card">
         <h2>UniProt regions</h2>
-        <p class="sub" id="reg-sub">Motifs, transmembrane segments, compositional bias and MobiDB-lite disorder calls, with the evidence UniProt gives for each · click to highlight</p>
+        <p class="sub" id="reg-sub">UniProt’s own domain annotations (e.g. PROSITE), motifs, transmembrane segments, compositional bias and MobiDB-lite disorder calls, with the evidence UniProt gives for each · click to highlight</p>
         <div id="regions"><div class="empty">Nothing loaded yet.</div></div>
       </div>
       <div class="card">
@@ -337,7 +337,7 @@ const PDB_COLOR = '#0F766E';
 const PDB_DEPTH = [[20,1,'≥ 20 entries'],[5,0.78,'5–19'],[2,0.58,'2–4'],[1,0.38,'1 entry']];
 const depthOpacity = n => { for (const [min,o] of PDB_DEPTH) if (n >= min) return o; return 0; };
 const PDB_ROWS = 60;
-const REGION_TYPES = new Set(['Region','Zinc finger','DNA binding','DNA-binding region','Transmembrane','Intramembrane','Signal','Coiled coil','Motif','Repeat','Transit peptide','Propeptide','Topological domain','Compositional bias']);
+const REGION_TYPES = new Set(['Domain','Region','Zinc finger','DNA binding','DNA-binding region','Transmembrane','Intramembrane','Signal','Coiled coil','Motif','Repeat','Transit peptide','Propeptide','Topological domain','Compositional bias']);
 // Human-readable summary of a UniProt feature's evidence, so a prediction is never shown as if it were a curated fact.
 const ECO = {'ECO:0000269':'experimental', 'ECO:0000303':'literature (non-traceable)', 'ECO:0000305':'curator inference', 'ECO:0000250':'by similarity',
              'ECO:0000255':'sequence analysis', 'ECO:0000256':'automatic annotation', 'ECO:0000259':'automatic (domain)', 'ECO:0000312':'imported', 'ECO:0000313':'imported', 'ECO:0007744':'combined evidence', 'ECO:0007829':'combined evidence'};
@@ -604,6 +604,7 @@ function parseEntry(e){
     const name = dis ? (ev.experimental ? 'Disordered (experimental evidence)' : ev.predicted ? 'Predicted disorder' : 'Disordered (evidence: ' + ev.text + ')') : desc;
     const typeLabel = dis ? (mobidb ? 'MobiDB-lite via UniProt · conservative consensus of long IDRs' : ev.text)
                     : bias ? `Compositional bias · ${mobidb ? 'MobiDB-lite via UniProt' : ev.text} · describes composition, not disorder by itself`
+                    : f.type === 'Domain' ? `UniProt domain · ${ev.text} · compare with the Pfam match above: different models, different boundaries`
                     : `${f.type} · ${ev.text}`;
     return {kind:'region', type:f.type, typeLabel, name, disordered:dis, bias, evidence:ev, frags:[{start:f.location.start.value, end:f.location.end.value}], start:f.location.start.value, end:f.location.end.value, color: dis ? '#7A8A9A' : bias ? '#C9A227' : '#9AA3B2', hl: REGION_HL};
   }).sort((a,b) => a.start-b.start);
@@ -1448,7 +1449,10 @@ async function loadCandidate(c, q){
     const pfamP = loadPfam(acc, entry.uniprotDomains, signal).then(res => renderGuard('pfam', 'domains', () => {
       if (mySeq !== loadSeq) return;
       state.pfam = res.list; state.pfamSource = res.source; state.pfamFamilies = res.families; state.pfamError = res.error;
-      renderPfam(); renderSequence(); renderArchitecture(); if (model) restyle();
+      // UniProt's own domain annotations are listed with the regions so their boundaries can be compared with the Pfam
+      // matches; when the Pfam panel is itself showing them (InterPro fallback) they are not listed twice.
+      state.regions = res.source === 'uniprot' ? entry.regions.filter(r => r.type !== 'Domain') : entry.regions;
+      renderPfam(); renderRegions(); renderSequence(); renderArchitecture(); if (model) restyle();
     }));
     const disP = loadDisorder(acc, entry.seq, signal).then(dis => renderGuard('dis', 'disorder annotations', () => {
       if (mySeq !== loadSeq) return;
@@ -1510,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('foot-ver').textContent = document.querySelector('.brand .ver')?.textContent || '';
   // Footer links. REPO is the GitHub repository of this file; set it once and the three links follow.
-  const REPO = 'https://github.com/liucongl/protein-explorer';
+  const REPO = 'https://github.com/USERNAME/protein-explorer';
   const link = (href, label) => `<a class="ext" href="${href}" target="_blank" rel="noopener">${label} ↗</a>`;
   $('foot-links').innerHTML = /USERNAME/.test(REPO)
     ? link('README.md', 'Help / README')
