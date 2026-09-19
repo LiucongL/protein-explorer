@@ -4,7 +4,7 @@ A single-file web app for exploring one protein at a time: its UniProt annotatio
 
 Enter a gene name, protein name or UniProt accession, choose an organism, and press **Search**. Select a domain, region or residues to highlight them in the sequence, architecture diagram and 3D structure. Protein-specific links use query parameters such as `?q=KRAS&org=9606` or `?q=P01116`.
 
-Current version: **v1.3.7**, also shown beside the app name in the header and in the footer.
+Current version: **v1.3.8**, also shown beside the app name in the header and in the footer.
 
 - **Open the app:** **https://liucongl.github.io/protein-explorer/** — no account needed.
 - **Source code and releases:** **https://github.com/liucongl/protein-explorer**
@@ -45,6 +45,8 @@ UniProt's own domain annotations (usually PROSITE profiles, which can span a lon
 - **Disorder:** different prediction methods can disagree. An unmarked region does not establish that it is ordered; use the track's method and evidence labels when interpreting it.
 - **Isoforms:** an isoform accession, such as `P01116-2`, selects that isoform's sequence, while domains, structures and disorder tracks refer to the canonical entry. Check the sequence and mapping labels before transferring coordinates between them.
 - **Availability:** public services can be unavailable or return incomplete annotations. A failed request is not evidence that a protein lacks a domain, structure or disordered region.
+- **Companion app.** The protein links include RefSeq & CDS, which opens the [RefSeq lookup](https://liucongl.github.io/refseq-lookup/) on the entry shown. That app lists the RefSeq protein and mRNA records UniProt cites and can copy the coding sequence. If you host your own copy of this Explorer, point it at your own RefSeq lookup by editing the REFSEQ_APP line near the top of the script; the link is hidden until that line holds a real address.
+
 
 ## Running and hosting
 
